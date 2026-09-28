@@ -1,0 +1,16 @@
+Bank Name,Bank ID,Account Number,Entity ID,Entity Name
+First Manhattan Bank,BNK_US_01,ACC_RING1_A,ENT_APEX_GLOBAL,Apex Global Trading LLC
+Zurich Private Bank,BNK_CH_01,ACC_RING1_B,ENT_HELVETIA_HOLDINGS,Helvetia Holdings AG
+Cayman Island Trust,BNK_KY_01,ACC_RING1_C,ENT_CORAL_REEF_SHELL,Coral Reef Investments Ltd
+Singapore Mercantile Bank,BNK_SG_01,ACC_RING1_D,ENT_PACIFIC_BRIDGE,Pacific Bridge Pte Ltd
+First Manhattan Bank,BNK_US_01,ACC_RING2_ORIGIN,ENT_OMEGA_TRADING,Omega Commodities Group
+London Clearing House,BNK_GB_01,ACC_RING2_MULE1,ENT_THAMES_LOGISTICS,Thames Logistics UK Ltd
+Panama Atlantic Bank,BNK_PA_01,ACC_RING2_MULE2,ENT_ISTHMUS_VENTURES,Isthmus Ventures SA
+Zurich Private Bank,BNK_CH_01,ACC_RING2_RETURN,ENT_OMEGA_TRADING,Omega Commodities Group
+Cayman Island Trust,BNK_KY_01,ACC_RING3_S1,ENT_SHELL_ALPHA,Alpha Horizon Ventures Ltd
+Luxembourg EuroBank,BNK_LU_01,ACC_RING3_INTER1,ENT_CONTINENTAL_CONSULT,Continental Consulting SARL
+Singapore Mercantile Bank,BNK_SG_01,ACC_RING3_INTER2,ENT_STRAITS_CAPITAL,Straits Capital Partners
+British Virgin Islands Bank,BNK_VG_01,ACC_RING3_S2,ENT_SHELL_BETA,Beta Maritime Holdings Ltd
+First Manhattan Bank,BNK_US_01,ACC_CLEAN_01,ENT_ACME_CORP,Acme Manufacturing Inc
+London Clearing House,BNK_GB_01,ACC_CLEAN_02,ENT_BRITANNIA_RETAIL,Britannia Retail PLC
+Zurich Private Bank,BNK_CH_01,ACC_CLEAN_03,ENT_ALPINE_PHARMA,Alpine Pharma AG

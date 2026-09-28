@@ -1,0 +1,48 @@
+{
+  "banks": {
+    "BNK_US_01": {"bic_swift": "FMNBUS33", "jurisdiction": "US"},
+    "BNK_CH_01": {"bic_swift": "ZPBKCHZZ", "jurisdiction": "CH"},
+    "BNK_KY_01": {"bic_swift": "CITRKYKY", "jurisdiction": "KY"},
+    "BNK_SG_01": {"bic_swift": "SMBKSGSG", "jurisdiction": "SG"},
+    "BNK_GB_01": {"bic_swift": "LCHBGB2L", "jurisdiction": "GB"},
+    "BNK_PA_01": {"bic_swift": "PABKPAPA", "jurisdiction": "PA"},
+    "BNK_LU_01": {"bic_swift": "EUBKLULL", "jurisdiction": "LU"},
+    "BNK_VG_01": {"bic_swift": "BVIBVGVG", "jurisdiction": "VG"}
+  },
+  "extra_entities": [
+    {
+      "entity_id": "ENT_UBO_VIKTOR",
+      "entity_name": "Viktor Rostov (Ultimate Beneficial Owner)",
+      "entity_type": "INDIVIDUAL",
+      "kyc_risk_tier": "HIGH",
+      "is_pep_or_sanctioned": true,
+      "jurisdiction": "CY",
+      "ubo_entity_id": null
+    }
+  ],
+  "entities": {
+    "ENT_APEX_GLOBAL": {"entity_type": "CORPORATION", "kyc_risk_tier": "MEDIUM", "jurisdiction": "US"},
+    "ENT_CORAL_REEF_SHELL": {"entity_type": "SHELL_COMPANY", "kyc_risk_tier": "HIGH", "jurisdiction": "KY"},
+    "ENT_OMEGA_TRADING": {"entity_type": "CORPORATION", "kyc_risk_tier": "HIGH", "jurisdiction": "US"},
+    "ENT_ISTHMUS_VENTURES": {"entity_type": "SHELL_COMPANY", "kyc_risk_tier": "HIGH", "jurisdiction": "PA"},
+    "ENT_SHELL_ALPHA": {
+      "entity_type": "SHELL_COMPANY",
+      "kyc_risk_tier": "HIGH",
+      "is_pep_or_sanctioned": true,
+      "jurisdiction": "KY",
+      "ubo_entity_id": "ENT_UBO_VIKTOR"
+    },
+    "ENT_SHELL_BETA": {
+      "entity_type": "SHELL_COMPANY",
+      "kyc_risk_tier": "HIGH",
+      "is_pep_or_sanctioned": true,
+      "jurisdiction": "VG",
+      "ubo_entity_id": "ENT_UBO_VIKTOR"
+    }
+  },
+  "accounts": {
+    "ACC_RING1_C": {"is_flagged": true, "iban": "KY99CITR0000001"},
+    "ACC_RING3_S1": {"is_flagged": true, "iban": "KY88CITR0000002"},
+    "ACC_RING3_S2": {"is_flagged": true, "iban": "VG77BVIB0000003"}
+  }
+}
