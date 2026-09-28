@@ -114,3 +114,22 @@ def test_domain_models_immutability_and_validation():
     assert evidence.retention_ratio == pytest.approx(0.97)
     assert evidence.total_duration_seconds == 9000.0
     assert evidence.account_ids == ("ACC_01", "ACC_02", "ACC_01")
+    with pytest.raises(TypeError):
+        evidence.raw_graph_path["mutated"] = True
+
+    evidence_direct = LaunderingRingEvidence(
+        typology="CIRCULAR_LAYERING",
+        hop_count=2,
+        initial_amount=Decimal("100000.00"),
+        final_amount=Decimal("97000.00"),
+        retention_ratio=0.97,
+        total_duration_seconds=9000.0,
+        account_ids=("ACC_01", "ACC_02", "ACC_01"),
+        hops=(hop1, hop2),
+        subject_entity_id=entity.entity_id,
+        query_latency_ms=14.2,
+        raw_graph_path={"direct": 123},
+    )
+    with pytest.raises(TypeError):
+        evidence_direct.raw_graph_path["mutated"] = True
+

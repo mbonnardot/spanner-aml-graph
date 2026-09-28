@@ -1,3 +1,4 @@
+import re
 from unittest.mock import MagicMock
 from spanner_aml.schema_manager import apply_schema, load_ddl_statements
 
@@ -13,6 +14,8 @@ def test_load_ddl_statements_parses_all_tables_indexes_and_graph():
     assert statements[9].startswith("CREATE OR REPLACE PROPERTY GRAPH AmlGraph")
     for stmt in statements:
         assert not stmt.endswith(";")
+        if stmt.startswith("CREATE TABLE"):
+            assert not re.search(r",\s*\)\s*PRIMARY KEY", stmt)
 
 
 def test_apply_schema_calls_update_ddl_and_waits():

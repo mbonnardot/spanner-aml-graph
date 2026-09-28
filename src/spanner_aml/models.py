@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Literal
+from types import MappingProxyType
+from typing import Any, Literal, Mapping
 
 TypologyType = Literal[
     "CIRCULAR_LAYERING",
@@ -98,7 +99,14 @@ class LaunderingRingEvidence:
     hops: tuple[TransferHop, ...]
     subject_entity_id: str | None
     query_latency_ms: float
-    raw_graph_path: dict[str, Any]
+    raw_graph_path: Mapping[str, Any]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "raw_graph_path",
+            MappingProxyType(dict(self.raw_graph_path)),
+        )
 
     @classmethod
     def from_hops(
@@ -107,7 +115,7 @@ class LaunderingRingEvidence:
         hops: tuple[TransferHop, ...],
         subject_entity_id: str | None,
         query_latency_ms: float,
-        raw_graph_path: dict[str, Any],
+        raw_graph_path: Mapping[str, Any],
     ) -> LaunderingRingEvidence:
         """Construct a validated LaunderingRingEvidence from an ordered tuple of hops."""
         if not hops:
@@ -132,5 +140,5 @@ class LaunderingRingEvidence:
             hops=hops,
             subject_entity_id=subject_entity_id,
             query_latency_ms=query_latency_ms,
-            raw_graph_path=dict(raw_graph_path),
+            raw_graph_path=MappingProxyType(dict(raw_graph_path)),
         )

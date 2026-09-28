@@ -4,7 +4,7 @@ CREATE TABLE Banks (
   bank_id      STRING(64) NOT NULL,
   bank_name    STRING(256) NOT NULL,
   bic_swift    STRING(16),
-  jurisdiction STRING(64),
+  jurisdiction STRING(64)
 ) PRIMARY KEY (bank_id);
 
 CREATE TABLE Entities (
@@ -73,7 +73,7 @@ CREATE TABLE ComplianceAlerts (
   evidence_subgraph      JSON NOT NULL,
   sar_narrative          STRING(MAX),
   alert_status           STRING(32) NOT NULL DEFAULT ('OPEN'),
-  created_at             TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
+  created_at             TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true)
 ) PRIMARY KEY (alert_id);
 
 CREATE OR REPLACE PROPERTY GRAPH AmlGraph
