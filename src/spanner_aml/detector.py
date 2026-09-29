@@ -29,13 +29,14 @@ def _unwrap_json(value: Any) -> Any:
     """Convert Spanner JsonObject or JSON string into standard Python dicts/lists."""
     if value is None:
         return None
-    if isinstance(value, (list, dict)):
-        return value
     if hasattr(value, "serialize"):
         return json.loads(value.serialize())
+    if isinstance(value, (list, dict)):
+        return value
     if isinstance(value, str):
         return json.loads(value)
     return value
+
 
 
 def _parse_iso_ts(raw_ts: str) -> datetime:

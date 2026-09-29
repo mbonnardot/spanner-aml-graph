@@ -45,8 +45,36 @@ class SpannerConfig:
     def get_database(self, client: Any | None = None) -> Any:
         """Return a bound Cloud Spanner Database handle."""
         if client is None:
+            from pathlib import Path
+            import subprocess
             from google.cloud import spanner  # type: ignore[import-untyped]
 
-            client = spanner.Client(project=self.project_id)
+            if not self.emulator_host and Path("/etc/gcloud/certificate_config.json").exists():
+                os.environ.setdefault("GOOGLE_API_USE_CLIENT_CERTIFICATE", "true")
+
+            creds = None
+            if not self.emulator_host and not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+                try:
+                    from google.oauth2.credentials import Credentials
+
+                    token = subprocess.check_output(
+                        ["gcloud", "auth", "print-access-token", "--quiet"],
+                        text=True,
+                        stderr=subprocess.DEVNULL,
+                        timeout=10,
+                    ).strip()
+                    if token:
+                        creds = Credentials(token=token, quota_project_id=self.project_id)
+                except Exception:
+                    creds = None
+
+            if creds is not None:
+                client = spanner.Client(project=self.project_id, credentials=creds)
+            else:
+                client = spanner.Client(
+                    project=self.project_id,
+                    client_options={"quota_project_id": self.project_id},
+                )
         instance = client.instance(self.instance_id)
         return instance.database(self.database_id)
+

@@ -50,8 +50,9 @@ def _sample_spanner_path_json(hop_edges: list[dict]) -> list[dict]:
 
 
 def test_gql_queries_follow_spanner_iso_gql_invariants():
-    assert "{2, 12}" in GQL_CIRCULAR_LAYERING
-    assert "{1, 11}" in GQL_PRE_SETTLEMENT_CYCLE_CHECK
+    assert "{2, 6}" in GQL_CIRCULAR_LAYERING
+    assert "{1, 5}" in GQL_PRE_SETTLEMENT_CYCLE_CHECK
+
 
     for query in (
         GQL_CIRCULAR_LAYERING,
@@ -364,4 +365,31 @@ def test_ring_detector_validation_and_unwrapping():
 
     with pytest.raises(ValueError, match="Unsupported graph path JSON structure"):
         parse_graph_path_hops(12345)
+
+    # Real Spanner JsonObject wrapping a JSON array (subclasses dict, has serialize())
+    import json
+    from google.cloud.spanner_v1.data_types import JsonObject
+
+    spanner_json_array = JsonObject.from_str(
+        json.dumps(
+            _sample_spanner_path_json(
+                [
+                    {
+                        "transaction_id": "tx_json_obj",
+                        "from_account_id": "ACC_X",
+                        "to_account_id": "ACC_Y",
+                        "amount_paid": "500.00",
+                        "amount_received": "500.00",
+                        "payment_currency": "USD",
+                        "payment_format": "Wire",
+                        "event_timestamp": "2026-09-28T08:00:00+00:00",
+                    }
+                ]
+            )
+        )
+    )
+    hops_from_json_obj = parse_graph_path_hops(spanner_json_array)
+    assert len(hops_from_json_obj) == 1
+    assert hops_from_json_obj[0].transaction_id == "tx_json_obj"
+
 
