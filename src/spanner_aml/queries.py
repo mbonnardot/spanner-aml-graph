@@ -4,7 +4,7 @@ from __future__ import annotations
 
 GQL_CIRCULAR_LAYERING = """
 GRAPH AmlGraph
-MATCH p = TRAIL (a:Account {account_id: @account_id})-[chain:TRANSFERRED_TO]->{2, 6}(a:Account)
+MATCH p = TRAIL (a:Account {account_id: @account_id})-[chain:TRANSFERRED_TO]->{2, 12}(a:Account)
 FILTER IS_SIMPLE(p)
   AND chain[SAFE_OFFSET(0)].amount_paid >= @min_amount
 LET indices = GENERATE_ARRAY(0, ARRAY_LENGTH(chain) - 2)
@@ -144,6 +144,23 @@ FILTER mule_count >= @min_degree
 RETURN origin_account_id, sink_account_id, mule_count, scatter_edges, gather_edges
 """.strip()
 
+GQL_BIPARTITE = """
+GRAPH AmlGraph
+MATCH (peer:Account)-[e_in:TRANSFERRED_TO]->(s1:Account {account_id: @account_id})-[e_bip:TRANSFERRED_TO]->(d1:Account)
+FILTER peer.account_id != s1.account_id
+  AND s1.account_id != d1.account_id
+  AND e_bip.amount_paid >= @min_amount
+RETURN s1.account_id AS sender_account_id,
+       d1.account_id AS receiver_account_id,
+       COUNT(DISTINCT peer.account_id) AS upstream_funder_count,
+       ARRAY_AGG(SAFE.TO_JSON(e_in) ORDER BY e_in.event_timestamp) AS funding_edges,
+       ARRAY_AGG(SAFE.TO_JSON(e_bip) ORDER BY e_bip.event_timestamp) AS bipartite_edges
+GROUP BY sender_account_id, receiver_account_id
+NEXT
+FILTER upstream_funder_count >= 1
+RETURN sender_account_id, receiver_account_id, upstream_funder_count, funding_edges, bipartite_edges
+""".strip()
+
 GQL_STACKED_BIPARTITE = """
 GRAPH AmlGraph
 MATCH p = ACYCLIC (l1:Account)-[chain:TRANSFERRED_TO]->{2, 4}(l_end:Account)
@@ -162,7 +179,7 @@ LIMIT 25
 
 GQL_RANDOM_WALK_LAYERING = """
 GRAPH AmlGraph
-MATCH p = ACYCLIC (src:Account {account_id: @account_id})-[chain:TRANSFERRED_TO]->{3, 5}(dst:Account)
+MATCH p = ACYCLIC (src:Account {account_id: @account_id})-[chain:TRANSFERRED_TO]->{2, 11}(dst:Account)
 FILTER src.account_id != dst.account_id
   AND chain[SAFE_OFFSET(0)].amount_paid >= @min_amount
 LET indices = GENERATE_ARRAY(0, ARRAY_LENGTH(chain) - 2)
@@ -177,5 +194,6 @@ RETURN SAFE.TO_JSON(p) AS walk_path,
        chain[SAFE_OFFSET(ARRAY_LENGTH(chain) - 1)].amount_received AS final_amount
 LIMIT 25
 """.strip()
+
 
 

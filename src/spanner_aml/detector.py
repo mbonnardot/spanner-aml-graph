@@ -12,6 +12,7 @@ from google.cloud.spanner_v1 import param_types  # type: ignore[import-untyped]
 
 from spanner_aml.models import LaunderingRingEvidence, TransferHop
 from spanner_aml.queries import (
+    GQL_BIPARTITE,
     GQL_CIRCULAR_LAYERING,
     GQL_FAN_IN,
     GQL_FAN_OUT,
@@ -467,6 +468,54 @@ class RingDetector:
                 )
         return tuple(results)
 
+    def detect_bipartite(
+        self,
+        account_id: str,
+        min_amount: Decimal = Decimal("1000"),
+    ) -> tuple[LaunderingRingEvidence, ...]:
+        """Detect single-layer bipartite relay transfers through `account_id`."""
+        t_start = time.perf_counter()
+        with self._database.snapshot() as snapshot:
+            rows = list(
+                snapshot.execute_sql(
+                    GQL_BIPARTITE,
+                    params={"account_id": account_id.strip(), "min_amount": min_amount},
+                    param_types={
+                        "account_id": param_types.STRING,
+                        "min_amount": param_types.NUMERIC,
+                    },
+                )
+            )
+        latency_ms = round((time.perf_counter() - t_start) * 1000.0, 2)
+
+        results: list[LaunderingRingEvidence] = []
+        for row in rows:
+            s_acc_id, recv_acc_id, peer_cnt, funding_raw, bipartite_raw = (
+                row[0],
+                row[1],
+                row[2],
+                row[3],
+                row[4],
+            )
+            hops = _dedup_hops(
+                parse_graph_path_hops(funding_raw) + parse_graph_path_hops(bipartite_raw)
+            )
+            if hops:
+                results.append(
+                    LaunderingRingEvidence.from_hops(
+                        typology="BIPARTITE",
+                        hops=hops,
+                        subject_entity_id=None,
+                        query_latency_ms=latency_ms,
+                        raw_graph_path={
+                            "source_account_id": s_acc_id,
+                            "receiver_account_id": recv_acc_id,
+                            "funding_peer_count": peer_cnt,
+                        },
+                    )
+                )
+        return tuple(results)
+
     def detect_stacked_bipartite(
         self,
         min_amount: Decimal = Decimal("1000"),
@@ -504,7 +553,7 @@ class RingDetector:
         account_id: str,
         min_amount: Decimal = Decimal("1000"),
     ) -> tuple[LaunderingRingEvidence, ...]:
-        """Detect 3-to-11 hop sequential non-cyclic layering chains starting at `account_id`."""
+        """Detect 2-to-11 hop sequential non-cyclic layering chains starting at `account_id`."""
         t_start = time.perf_counter()
         with self._database.snapshot() as snapshot:
             rows = list(

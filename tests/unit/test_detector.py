@@ -5,6 +5,7 @@ import pytest
 
 from spanner_aml.detector import RingDetector, parse_graph_path_hops, _unwrap_json
 from spanner_aml.queries import (
+    GQL_BIPARTITE,
     GQL_CIRCULAR_LAYERING,
     GQL_FAN_IN,
     GQL_FAN_OUT,
@@ -50,7 +51,7 @@ def _sample_spanner_path_json(hop_edges: list[dict]) -> list[dict]:
 
 
 def test_gql_queries_follow_spanner_iso_gql_invariants():
-    assert "{2, 6}" in GQL_CIRCULAR_LAYERING
+    assert "{2, 12}" in GQL_CIRCULAR_LAYERING
     assert "{1, 5}" in GQL_PRE_SETTLEMENT_CYCLE_CHECK
 
 
@@ -72,6 +73,7 @@ def test_gql_queries_follow_spanner_iso_gql_invariants():
         GQL_FAN_IN,
         GQL_GATHER_SCATTER,
         GQL_SCATTER_GATHER,
+        GQL_BIPARTITE,
         GQL_STACKED_BIPARTITE,
     ):
         assert pattern_query.strip().startswith("GRAPH AmlGraph")
@@ -314,11 +316,24 @@ def test_ring_detector_ibm_pattern_families():
     assert len(sb) == 1
     assert sb[0].typology == "STACKED_BIPARTITE"
 
-    # 6. RANDOM_WALK
+    # 6. RANDOM_WALK ({2, 11} hop range)
+    from spanner_aml.queries import GQL_BIPARTITE, GQL_CIRCULAR_LAYERING, GQL_RANDOM_WALK_LAYERING
+
+    assert "->{2, 12}" in GQL_CIRCULAR_LAYERING
+    assert "->{2, 11}" in GQL_RANDOM_WALK_LAYERING
+    assert "GRAPH AmlGraph" in GQL_BIPARTITE
+
     mock_snapshot.execute_sql.return_value = [(relay_path, 2, Decimal("5000.00"), Decimal("6000.00"))]
     rw = detector.detect_random_walk_layering("ACC_HUB")
     assert len(rw) == 1
     assert rw[0].typology == "RANDOM_WALK"
+
+    # 7. BIPARTITE (1-layer bipartite transfer with upstream/downstream connectivity)
+    mock_snapshot.execute_sql.return_value = [("ACC_S1", "ACC_D1", 1, [edge_1], [edge_2])]
+    bip = detector.detect_bipartite("ACC_S1")
+    assert len(bip) == 1
+    assert bip[0].typology == "BIPARTITE"
+    assert bip[0].hop_count == 2
 
 
 def test_ring_detector_validation_and_unwrapping():
