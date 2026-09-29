@@ -195,5 +195,30 @@ RETURN SAFE.TO_JSON(p) AS walk_path,
 LIMIT 25
 """.strip()
 
+GQL_ACCOUNT_KYC_CONTEXT = """
+GRAPH AmlGraph
+MATCH (b:Bank)<-[:HELD_AT]-(a:Account)<-[:OWNS]-(e:Entity)
+WHERE a.account_id IN UNNEST(@account_ids)
+RETURN a.account_id AS account_id,
+       a.iban AS iban,
+       a.currency AS currency,
+       a.account_status AS account_status,
+       a.is_flagged AS is_flagged,
+       b.bank_id AS bank_id,
+       b.bank_name AS bank_name,
+       b.bic_swift AS bic_swift,
+       b.jurisdiction AS bank_jurisdiction,
+       e.entity_id AS entity_id,
+       e.entity_name AS entity_name,
+       e.entity_type AS entity_type,
+       e.kyc_risk_tier AS kyc_risk_tier,
+       e.is_pep_or_sanctioned AS is_pep_or_sanctioned,
+       e.jurisdiction AS entity_jurisdiction,
+       e.ubo_entity_id AS ubo_entity_id
+""".strip()
 
-
+SQL_UBO_ENTITIES_LOOKUP = """
+SELECT entity_id, entity_name
+FROM Entities
+WHERE entity_id IN UNNEST(@ubo_ids)
+""".strip()

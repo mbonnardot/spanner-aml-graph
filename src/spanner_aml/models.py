@@ -17,6 +17,7 @@ TypologyType = Literal[
     "FAN_IN",
     "GATHER_SCATTER",
     "SCATTER_GATHER",
+    "BIPARTITE",
     "STACKED_BIPARTITE",
     "RANDOM_WALK",
 ]
@@ -199,4 +200,89 @@ class LaunderingRingEvidence:
             query_latency_ms=query_latency_ms,
             raw_graph_path=MappingProxyType(dict(raw_graph_path)),
         )
+
+
+@dataclass(frozen=True)
+class AccountKycProfile:
+    """Enriched KYC, Bank domicile, and UBO ownership profile for an Account node."""
+
+    account_id: str
+    iban: str | None
+    currency: str
+    account_status: str
+    is_flagged: bool
+    bank_id: str
+    bank_name: str
+    bic_swift: str | None
+    bank_jurisdiction: str | None
+    entity_id: str
+    entity_name: str
+    entity_type: str
+    kyc_risk_tier: str
+    is_pep_or_sanctioned: bool
+    entity_jurisdiction: str | None
+    ubo_entity_id: str | None = None
+    ubo_entity_name: str | None = None
+
+
+@dataclass(frozen=True)
+class RiskAssessment:
+    """Deterministic, explainable AML risk score and factor breakdown."""
+
+    risk_score: float
+    risk_level: str
+    reasons: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class EnrichedCaseInvestigation:
+    """Complete enriched AML investigation case combining GQL path evidence, KYC profiles, and risk score."""
+
+    case_id: str
+    evidence: LaunderingRingEvidence
+    kyc_profiles: Mapping[str, AccountKycProfile]
+    risk_assessment: RiskAssessment
+    enrichment_latency_ms: float
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "kyc_profiles",
+            MappingProxyType(dict(self.kyc_profiles)),
+        )
+
+
+@dataclass(frozen=True)
+class ComplianceAlert:
+    """Immutable ComplianceAlert record persisted to Cloud Spanner ComplianceAlerts."""
+
+    alert_id: str
+    trigger_transaction_id: str
+    subject_entity_id: str | None
+    typology: str
+    risk_score: float
+    evidence_subgraph: Mapping[str, Any]
+    sar_narrative: str
+    sar_generation_source: str
+    citations_verified: bool
+    alert_status: str
+    created_at: datetime
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "evidence_subgraph",
+            MappingProxyType(dict(self.evidence_subgraph)),
+        )
+
+
+@dataclass(frozen=True)
+class InterceptionResult:
+    """Result of evaluating a candidate payment through the pre-settlement GQL interceptor."""
+
+    transaction: Transaction
+    decision: str
+    latency_ms: float
+    matched_evidence: tuple[LaunderingRingEvidence, ...]
+
 
