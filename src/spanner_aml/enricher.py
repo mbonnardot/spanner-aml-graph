@@ -129,11 +129,12 @@ class GraphContextEnricher:
                     },
                 )
             )
-            ubo_ids = sorted({str(r[15]) for r in rows if len(r) > 15 and r[15]})
-            ubo_names: dict[str, str] = {}
-            if ubo_ids:
+        ubo_ids = sorted({str(r[15]) for r in rows if len(r) > 15 and r[15]})
+        ubo_names: dict[str, str] = {}
+        if ubo_ids:
+            with self._database.snapshot() as ubo_snapshot:
                 ubo_rows = list(
-                    snapshot.execute_sql(
+                    ubo_snapshot.execute_sql(
                         SQL_UBO_ENTITIES_LOOKUP,
                         params={"ubo_ids": ubo_ids},
                         param_types={
@@ -141,8 +142,8 @@ class GraphContextEnricher:
                         },
                     )
                 )
-                for u_row in ubo_rows:
-                    ubo_names[str(u_row[0])] = str(u_row[1])
+            for u_row in ubo_rows:
+                ubo_names[str(u_row[0])] = str(u_row[1])
 
         latency_ms = round((time.perf_counter() - t_start) * 1000.0, 2)
         profiles: dict[str, AccountKycProfile] = {}

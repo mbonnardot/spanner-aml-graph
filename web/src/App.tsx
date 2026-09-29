@@ -590,6 +590,7 @@ export function App() {
                         padding: 10,
                         background: '#161616',
                         borderLeft: `4px solid ${
+                          interceptResult.decision === 'HELD' ||
                           interceptResult.decision === 'BLOCK_HOLD_COMPLIANCE'
                             ? '#da1e28'
                             : '#24a148'
@@ -606,6 +607,7 @@ export function App() {
                       >
                         <Tag
                           type={
+                            interceptResult.decision === 'HELD' ||
                             interceptResult.decision === 'BLOCK_HOLD_COMPLIANCE'
                               ? 'red'
                               : 'green'
@@ -624,9 +626,10 @@ export function App() {
                         </span>
                       </div>
                       <div style={{ fontSize: 11, color: '#e0e0e0' }}>
-                        {interceptResult.decision === 'BLOCK_HOLD_COMPLIANCE'
-                          ? `Blocked: Transfer closes ${interceptResult.matched_rings.length} active circular layering path(s) returning to ${interceptResult.to_account_id}.`
-                          : 'Approved: No circular laundering path closed by this transfer.'}
+                        {interceptResult.decision === 'HELD' ||
+                        interceptResult.decision === 'BLOCK_HOLD_COMPLIANCE'
+                          ? `Blocked (HELD): Transfer closes ${interceptResult.matched_rings.length} active circular layering path(s) returning to ${interceptResult.to_account_id}.`
+                          : 'Approved (SETTLED): No circular laundering path closed by this transfer.'}
                       </div>
                     </div>
                   )}

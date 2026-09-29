@@ -58,12 +58,15 @@ class SettlementInterceptor:
         if not clean_from or not clean_to:
             raise ValueError("from_account_id and to_account_id must be non-empty")
 
+        now_ts = datetime.now(timezone.utc)
         t_start = time.perf_counter()
         # A transfer from `from_account_id -> to_account_id` closes a cycle if there is already
         # an active path from `to_account_id ->* from_account_id`.
-        matched = self._detector.check_pre_settlement_cycle(
-            from_account_id=clean_to,
-            candidate_to_account_id=clean_from,
+        matched = self._detector.check_pre_settlement_ring(
+            from_account_id=clean_from,
+            to_account_id=clean_to,
+            candidate_amount=amount_paid,
+            candidate_timestamp=now_ts,
             min_amount=min(min_amount, amount_paid),
         )
         latency_ms = round((time.perf_counter() - t_start) * 1000.0, 2)

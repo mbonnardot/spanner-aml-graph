@@ -107,7 +107,7 @@ export interface InterceptionResult {
   readonly amount_paid: number;
   readonly payment_currency: string;
   readonly payment_format: string;
-  readonly decision: 'BLOCK_HOLD_COMPLIANCE' | 'APPROVE';
+  readonly decision: 'HELD' | 'SETTLED' | 'BLOCK_HOLD_COMPLIANCE' | 'APPROVE';
   readonly latency_ms: number;
   readonly matched_rings: readonly LaunderingRingEvidence[];
 }

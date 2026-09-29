@@ -123,7 +123,7 @@ def test_settlement_interceptor_holds_closing_cycle_and_settles_clean():
     mock_batch = MagicMock()
     mock_db.batch.return_value.__enter__.return_value = mock_batch
     mock_detector = MagicMock()
-    mock_detector.check_pre_settlement_cycle.return_value = (_sample_evidence(),)
+    mock_detector.check_pre_settlement_ring.return_value = (_sample_evidence(),)
 
     interceptor = SettlementInterceptor(mock_db, detector=mock_detector)
     res_held = interceptor.evaluate_candidate_transfer(
@@ -137,7 +137,7 @@ def test_settlement_interceptor_holds_closing_cycle_and_settles_clean():
     assert len(res_held.matched_evidence) == 1
     assert mock_batch.insert_or_update.called
 
-    mock_detector.check_pre_settlement_cycle.return_value = ()
+    mock_detector.check_pre_settlement_ring.return_value = ()
     res_clean = interceptor.evaluate_candidate_transfer(
         from_account_id="ACC_CLEAN_1",
         to_account_id="ACC_CLEAN_2",

@@ -279,12 +279,31 @@ class SarInvestigator:
         try:
             client = self._genai_client
             if client is None:
+                import subprocess
                 from google import genai
+                from google.oauth2.credentials import Credentials
+
+                creds = None
+                if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+                    try:
+                        token = subprocess.check_output(
+                            ["gcloud", "auth", "print-access-token", "--quiet"],
+                            text=True,
+                            stderr=subprocess.DEVNULL,
+                            timeout=10,
+                        ).strip()
+                        if token:
+                            creds = Credentials(
+                                token=token, quota_project_id=self._project_id
+                            )
+                    except Exception:
+                        creds = None
 
                 client = genai.Client(
                     vertexai=True,
                     project=self._project_id,
                     location=self._location,
+                    credentials=creds,
                 )
             prompt = (
                 "You are a Senior Financial Crimes Compliance Investigator drafting an official FinCEN "
