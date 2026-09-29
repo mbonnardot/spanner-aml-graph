@@ -66,3 +66,36 @@ def test_cli_detect_rings_prints_json_summary(mock_detector_cls, mock_from_env, 
     out = capsys.readouterr().out
     assert "CIRCULAR_LAYERING" in out
     assert "ACC_RING1_A" in out
+
+
+def test_cli_inspect_patterns(tmp_path, capsys):
+    patterns_txt = tmp_path / "sample_patterns.txt"
+    patterns_txt.write_text(
+        "BEGIN LAUNDERING ATTEMPT - CYCLE:  Max 3 hops\n"
+        "2022/09/01 00:03,01467,8013C4030,020,80BC62F10,58702.10,Yuan,58702.10,Yuan,ACH,1\n"
+        "END LAUNDERING ATTEMPT - CYCLE\n",
+        encoding="utf-8",
+    )
+    rc = main(["inspect-patterns", "--patterns-file", str(patterns_txt)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert '"total_episodes": 1' in out
+    assert '"CYCLE": 1' in out
+
+
+@patch("spanner_aml.cli.SpannerConfig.from_env")
+@patch("spanner_aml.cli.build_simulation_dataset")
+@patch("spanner_aml.cli.load_dataset_into_spanner")
+def test_cli_load_data_kaggle_dataset(mock_load, mock_build_sim, mock_from_env, capsys):
+    mock_cfg = MagicMock()
+    mock_from_env.return_value = mock_cfg
+    mock_load.return_value = {"Banks": 1015, "Entities": 3885, "Accounts": 4232, "Transactions": 4209}
+
+    rc = main(["load-data", "--kaggle-dataset", "HI", "--background-limit", "1000"])
+    assert rc == 0
+    mock_build_sim.assert_called_once()
+    mock_load.assert_called_once()
+    out = capsys.readouterr().out
+    assert '"Transactions": 4209' in out
+
+

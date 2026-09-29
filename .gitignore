@@ -11,3 +11,5 @@ build/
 *.egg-info/
 .env
 .superpowers/
+data/seed/HI/
+data/seed/LI/

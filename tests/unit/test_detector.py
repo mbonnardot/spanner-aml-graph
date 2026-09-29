@@ -6,8 +6,14 @@ import pytest
 from spanner_aml.detector import RingDetector, parse_graph_path_hops, _unwrap_json
 from spanner_aml.queries import (
     GQL_CIRCULAR_LAYERING,
+    GQL_FAN_IN,
+    GQL_FAN_OUT,
+    GQL_GATHER_SCATTER,
     GQL_PRE_SETTLEMENT_CYCLE_CHECK,
+    GQL_RANDOM_WALK_LAYERING,
     GQL_SAME_ENTITY_RING,
+    GQL_SCATTER_GATHER,
+    GQL_STACKED_BIPARTITE,
     GQL_UBO_SHELL_RING,
 )
 
@@ -44,17 +50,32 @@ def _sample_spanner_path_json(hop_edges: list[dict]) -> list[dict]:
 
 
 def test_gql_queries_follow_spanner_iso_gql_invariants():
+    assert "{2, 12}" in GQL_CIRCULAR_LAYERING
+    assert "{1, 11}" in GQL_PRE_SETTLEMENT_CYCLE_CHECK
+
     for query in (
         GQL_CIRCULAR_LAYERING,
         GQL_PRE_SETTLEMENT_CYCLE_CHECK,
         GQL_SAME_ENTITY_RING,
         GQL_UBO_SHELL_RING,
+        GQL_RANDOM_WALK_LAYERING,
     ):
         assert query.strip().startswith("GRAPH AmlGraph")
         assert "GENERATE_ARRAY" in query
         assert "ARRAY_FILTER" in query
         assert "SAFE.TO_JSON" in query
         assert "RETURN" in query
+
+    for pattern_query in (
+        GQL_FAN_OUT,
+        GQL_FAN_IN,
+        GQL_GATHER_SCATTER,
+        GQL_SCATTER_GATHER,
+        GQL_STACKED_BIPARTITE,
+    ):
+        assert pattern_query.strip().startswith("GRAPH AmlGraph")
+        assert "SAFE.TO_JSON" in pattern_query
+        assert "RETURN" in pattern_query
 
 
 def test_parse_graph_path_hops_extracts_ordered_transfer_hops():
@@ -226,6 +247,79 @@ def test_ring_detector_same_entity_and_ubo_shell_and_scan_all():
     assert isinstance(all_rings, tuple)
 
 
+def test_ring_detector_ibm_pattern_families():
+    mock_db = MagicMock()
+    mock_snapshot = MagicMock()
+    mock_db.snapshot.return_value.__enter__.return_value = mock_snapshot
+    detector = RingDetector(mock_db)
+
+    edge_1 = {
+        "kind": "edge",
+        "properties": {
+            "transaction_id": "tx_fo_1",
+            "from_account_id": "ACC_HUB",
+            "to_account_id": "ACC_DST_1",
+            "amount_paid": "5000.00",
+            "amount_received": "5000.00",
+            "payment_currency": "USD",
+            "payment_format": "ACH",
+            "event_timestamp": "2022-09-01T01:00:00Z",
+        },
+    }
+    edge_2 = {
+        "kind": "edge",
+        "properties": {
+            "transaction_id": "tx_fo_2",
+            "from_account_id": "ACC_HUB",
+            "to_account_id": "ACC_DST_2",
+            "amount_paid": "6000.00",
+            "amount_received": "6000.00",
+            "payment_currency": "USD",
+            "payment_format": "ACH",
+            "event_timestamp": "2022-09-01T02:00:00Z",
+        },
+    }
+
+    # 1. FAN_OUT
+    mock_snapshot.execute_sql.return_value = [("ACC_HUB", 2, [edge_1, edge_2])]
+    fan_out = detector.detect_fan_out("ACC_HUB", min_degree=2)
+    assert len(fan_out) == 1
+    assert fan_out[0].typology == "FAN_OUT"
+    assert fan_out[0].hop_count == 2
+
+    # 2. FAN_IN
+    mock_snapshot.execute_sql.return_value = [("ACC_SINK", 2, [edge_1, edge_2])]
+    fan_in = detector.detect_fan_in("ACC_SINK", min_degree=2)
+    assert len(fan_in) == 1
+    assert fan_in[0].typology == "FAN_IN"
+
+    # 3. GATHER_SCATTER
+    mock_snapshot.execute_sql.return_value = [("ACC_HUB", 1, 1, [edge_1], [edge_2])]
+    gs = detector.detect_gather_scatter("ACC_HUB")
+    assert len(gs) == 1
+    assert gs[0].typology == "GATHER_SCATTER"
+    assert gs[0].hop_count == 2
+
+    # 4. SCATTER_GATHER
+    mock_snapshot.execute_sql.return_value = [("ACC_ORIG", "ACC_SINK", 2, [edge_1], [edge_2])]
+    sg = detector.detect_scatter_gather("ACC_ORIG")
+    assert len(sg) == 1
+    assert sg[0].typology == "SCATTER_GATHER"
+
+    # 5. STACKED_BIPARTITE
+    relay_path = _sample_spanner_path_json([edge_1["properties"], edge_2["properties"]])
+    mock_snapshot.execute_sql.return_value = [(relay_path, 2)]
+    sb = detector.detect_stacked_bipartite()
+    assert len(sb) == 1
+    assert sb[0].typology == "STACKED_BIPARTITE"
+
+    # 6. RANDOM_WALK
+    mock_snapshot.execute_sql.return_value = [(relay_path, 2, Decimal("5000.00"), Decimal("6000.00"))]
+    rw = detector.detect_random_walk_layering("ACC_HUB")
+    assert len(rw) == 1
+    assert rw[0].typology == "RANDOM_WALK"
+
+
 def test_ring_detector_validation_and_unwrapping():
     mock_db = MagicMock()
     detector = RingDetector(mock_db)
@@ -270,3 +364,4 @@ def test_ring_detector_validation_and_unwrapping():
 
     with pytest.raises(ValueError, match="Unsupported graph path JSON structure"):
         parse_graph_path_hops(12345)
+

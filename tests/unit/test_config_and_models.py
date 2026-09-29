@@ -9,8 +9,10 @@ from spanner_aml.models import (
     Bank,
     Entity,
     LaunderingRingEvidence,
+    SimulationEpisode,
     Transaction,
     TransferHop,
+    normalize_to_usd,
 )
 
 
@@ -62,6 +64,7 @@ def test_domain_models_immutability_and_validation():
         account_status="ACTIVE",
         is_flagged=False,
     )
+    assert account.account_id == "ACC_01"
     t0 = datetime(2026, 9, 28, 10, 0, tzinfo=timezone.utc)
     t1 = datetime(2026, 9, 28, 12, 30, tzinfo=timezone.utc)
     tx = Transaction(
@@ -115,7 +118,7 @@ def test_domain_models_immutability_and_validation():
     assert evidence.total_duration_seconds == 9000.0
     assert evidence.account_ids == ("ACC_01", "ACC_02", "ACC_01")
     with pytest.raises(TypeError):
-        evidence.raw_graph_path["mutated"] = True
+        evidence.raw_graph_path["mutated"] = True  # type: ignore[index]
 
     evidence_direct = LaunderingRingEvidence(
         typology="CIRCULAR_LAYERING",
@@ -131,5 +134,55 @@ def test_domain_models_immutability_and_validation():
         raw_graph_path={"direct": 123},
     )
     with pytest.raises(TypeError):
-        evidence_direct.raw_graph_path["mutated"] = True
+        evidence_direct.raw_graph_path["mutated"] = True  # type: ignore[index]
+
+
+def test_multi_currency_fx_normalization_and_simulation_episode():
+    t0 = datetime(2022, 9, 1, 0, 3, tzinfo=timezone.utc)
+    t1 = datetime(2022, 9, 4, 15, 51, tzinfo=timezone.utc)
+
+    usd_from_yuan = normalize_to_usd(Decimal("58702.10"), "Yuan")
+    assert usd_from_yuan == Decimal("8805.32")
+
+    hop_yuan = TransferHop(
+        transaction_id="tx_c1",
+        from_account_id="8013C4030",
+        to_account_id="80BC62F10",
+        amount_paid=Decimal("58702.10"),
+        amount_received=Decimal("58702.10"),
+        currency="Yuan",
+        payment_format="ACH",
+        event_timestamp=t0,
+    )
+    hop_usd = TransferHop(
+        transaction_id="tx_c10",
+        from_account_id="80ACEE280",
+        to_account_id="8013C4030",
+        amount_paid=Decimal("7945.55"),
+        amount_received=Decimal("7945.55"),
+        currency="US Dollar",
+        payment_format="ACH",
+        event_timestamp=t1,
+    )
+    ev = LaunderingRingEvidence.from_hops(
+        typology="CIRCULAR_LAYERING",
+        hops=(hop_yuan, hop_usd),
+        subject_entity_id=None,
+        query_latency_ms=8.5,
+        raw_graph_path={},
+    )
+    assert ev.initial_amount == Decimal("8805.32")
+    assert ev.final_amount == Decimal("7945.55")
+    assert ev.retention_ratio == pytest.approx(7945.55 / 8805.32, rel=1e-4)
+
+    episode = SimulationEpisode(
+        episode_id="ep_0001",
+        pattern_type="CYCLE",
+        pattern_detail="Max 10 hops",
+        transactions=(),
+        account_ids=("8013C4030", "80BC62F10"),
+    )
+    with pytest.raises(FrozenInstanceError):
+        episode.pattern_type = "FAN-OUT"  # type: ignore[misc]
+
 
