@@ -13,3 +13,5 @@ build/
 .superpowers/
 data/seed/HI/
 data/seed/LI/
+web/node_modules/
+web/dist/

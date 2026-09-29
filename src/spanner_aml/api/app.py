@@ -481,6 +481,13 @@ def create_app() -> FastAPI:
             meta={"total": len(alerts)},
         )
 
+    from pathlib import Path
+    from fastapi.staticfiles import StaticFiles
+
+    web_dist = Path(__file__).resolve().parents[3] / "web" / "dist"
+    if web_dist.is_dir():
+        app.mount("/", StaticFiles(directory=str(web_dist), html=True), name="web")
+
     return app
 
 

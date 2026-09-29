@@ -1,0 +1,123 @@
+@use '@carbon/styles/css/styles.css';
+@use '@xyflow/react/dist/style.css';
+
+:root {
+  --cds-font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --cds-font-mono: 'IBM Plex Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #161616;
+  color: #f4f4f4;
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.workbench-shell {
+  display: grid;
+  grid-template-columns: 330px 1fr 410px;
+  height: calc(100vh - 48px);
+  margin-top: 48px;
+  background-color: #161616;
+}
+
+.left-sidebar {
+  background-color: #1c1c1c;
+  border-right: 1px solid #393939;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 12px;
+  gap: 12px;
+}
+
+.center-stage {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background-color: #161616;
+}
+
+.graph-canvas-wrapper {
+  flex: 1;
+  position: relative;
+  min-height: 360px;
+  border-bottom: 1px solid #393939;
+}
+
+.hop-timeline-panel {
+  height: 245px;
+  overflow-y: auto;
+  background-color: #1c1c1c;
+  padding: 8px 12px;
+}
+
+.right-dossier {
+  background-color: #1c1c1c;
+  border-left: 1px solid #393939;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 14px;
+  gap: 14px;
+}
+
+.case-card {
+  background-color: #262626;
+  border: 1px solid #393939;
+  border-left: 4px solid transparent;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.case-card:hover {
+  background-color: #333333;
+}
+
+.case-card--active {
+  background-color: #2d2d2d;
+  border-color: #4589ff;
+  border-left-color: #0f62fe;
+}
+
+.sar-narrative-box {
+  background-color: #161616;
+  border: 1px solid #393939;
+  border-left: 4px solid #0f62fe;
+  padding: 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  color: #f4f4f4;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.react-flow__controls {
+  background: #262626 !important;
+  border: 1px solid #393939 !important;
+  box-shadow: none !important;
+}
+
+.react-flow__controls-button {
+  background: #262626 !important;
+  fill: #f4f4f4 !important;
+  border-bottom: 1px solid #393939 !important;
+}
+
+.react-flow__controls-button:hover {
+  background: #393939 !important;
+}
