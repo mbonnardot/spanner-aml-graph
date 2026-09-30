@@ -33,17 +33,13 @@ export function AccountNode({ data }: NodeProps<Node<AccountNodeData>>) {
 
   return (
     <div
+      className="aml-account-node"
       style={{
-        width: 236,
-        background: '#262626',
         border: `1.5px solid ${borderColor}`,
         borderLeft: `5px solid ${borderColor}`,
-        padding: '10px 12px',
-        color: '#f4f4f4',
         boxShadow: data.isHighlighted
           ? '0 0 0 2px rgba(255, 131, 43, 0.45), 0 8px 20px rgba(0, 0, 0, 0.65)'
           : '0 4px 12px rgba(0, 0, 0, 0.5)',
-        fontFamily: "'IBM Plex Sans', sans-serif",
       }}
     >
       <Handle
@@ -51,24 +47,8 @@ export function AccountNode({ data }: NodeProps<Node<AccountNodeData>>) {
         position={Position.Left}
         style={{ background: '#4589ff', width: 8, height: 8 }}
       />
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 6,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: "'IBM Plex Mono', monospace",
-            fontSize: 13,
-            fontWeight: 600,
-            color: '#ffffff',
-          }}
-        >
-          {data.accountId}
-        </span>
+      <div className="aml-account-node__header">
+        <span className="aml-account-node__id">{data.accountId}</span>
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           {data.isAnchor && (
             <Tag type="red" size="sm">
@@ -83,30 +63,12 @@ export function AccountNode({ data }: NodeProps<Node<AccountNodeData>>) {
         </div>
       </div>
 
-      <div
-        style={{
-          fontSize: 11,
-          color: '#c6c6c6',
-          marginBottom: 6,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-        }}
-      >
+      <div className="aml-account-node__holder">
         {profile?.entity_name ?? 'Account Holder'} (
         {profile?.entity_jurisdiction ?? 'US'})
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          fontSize: 11,
-          fontFamily: "'IBM Plex Mono', monospace",
-          borderTop: '1px solid #393939',
-          paddingTop: 6,
-        }}
-      >
+      <div className="aml-account-node__flows">
         <span style={{ color: '#ff832b' }}>
           OUT: $
           {data.totalOutUsd.toLocaleString(undefined, {
@@ -122,9 +84,7 @@ export function AccountNode({ data }: NodeProps<Node<AccountNodeData>>) {
       </div>
 
       {isHighRisk && (
-        <div
-          style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}
-        >
+        <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
           {(profile?.is_pep_or_sanctioned || profile?.ubo_entity_id) && (
             <Tag type="magenta" size="sm" renderIcon={WarningAltFilled}>
               PEP / UBO
@@ -156,14 +116,10 @@ export function EntityNode({ data }: NodeProps<Node<EntityNodeData>>) {
   const borderColor = data.isUbo ? '#ff832b' : '#a56eff';
   return (
     <div
+      className="aml-entity-node"
       style={{
-        width: 205,
-        background: '#161616',
         border: `1px dashed ${borderColor}`,
         borderTop: `3px solid ${borderColor}`,
-        padding: '8px 10px',
-        color: '#f4f4f4',
-        fontFamily: "'IBM Plex Sans', sans-serif",
       }}
     >
       <Handle
@@ -202,13 +158,13 @@ export function EntityNode({ data }: NodeProps<Node<EntityNodeData>>) {
         {data.entityName}
       </div>
       <div
+        className="tabular-nums"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           marginTop: 4,
           fontSize: 10,
-          fontFamily: "'IBM Plex Mono', monospace",
           color: '#a8a8a8',
         }}
       >
@@ -233,32 +189,21 @@ export function EntityNode({ data }: NodeProps<Node<EntityNodeData>>) {
 
 export function BankNode({ data }: NodeProps<Node<BankNodeData>>) {
   return (
-    <div
-      style={{
-        width: 190,
-        background: '#1c1c1c',
-        border: '1px solid #525252',
-        padding: '7px 10px',
-        color: '#e0e0e0',
-        fontFamily: "'IBM Plex Sans', sans-serif",
-      }}
-    >
+    <div className="aml-bank-node">
       <Handle
         type="target"
         position={Position.Top}
         style={{ background: '#6f6f6f' }}
       />
-      <div
-        style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}
-      >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
         <Finance size={14} />
         <span style={{ fontWeight: 600 }}>{data.bankName}</span>
       </div>
       <div
+        className="tabular-nums"
         style={{
           fontSize: 10,
           color: '#8d8d8d',
-          fontFamily: "'IBM Plex Mono', monospace",
           marginTop: 2,
         }}
       >

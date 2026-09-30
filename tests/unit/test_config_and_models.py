@@ -186,3 +186,23 @@ def test_multi_currency_fx_normalization_and_simulation_episode():
         episode.pattern_type = "FAN-OUT"  # type: ignore[misc]
 
 
+def test_resolve_gcp_credentials_and_refresh(monkeypatch):
+    from spanner_aml import config as cfg_mod
+
+    monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
+    tokens = iter(["token_initial", "token_refreshed"])
+    monkeypatch.setattr(cfg_mod, "_fetch_gcloud_access_token", lambda: next(tokens))
+
+    assert cfg_mod.resolve_gcp_credentials("proj-1", emulator_host="localhost:9010") is None
+
+    creds = cfg_mod.resolve_gcp_credentials("proj-1", emulator_host=None)
+    assert creds is not None
+    assert creds.token == "token_initial"
+    assert creds.quota_project_id == "proj-1"
+    assert creds.expiry is not None
+
+    creds.refresh(None)
+    assert creds.token == "token_refreshed"
+
+
+

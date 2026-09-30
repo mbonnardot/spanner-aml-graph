@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from decimal import Decimal
 import os
-from typing import Any
+from pathlib import Path
+from types import MappingProxyType
+from typing import Any, Mapping
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from spanner_aml.api.schemas import (
     ApiEnvelope,
@@ -27,7 +30,7 @@ from spanner_aml.models import (
 )
 from spanner_aml.sar_agent import AlertRepository, SarInvestigator
 
-DEFAULT_CASE_CATALOG: tuple[dict[str, Any], ...] = (
+_RAW_CASE_CATALOG: tuple[dict[str, Any], ...] = (
     {
         "case_id": "CASE_HI_CYCLE_10HOP",
         "title": "HI-Small 10-Hop Circular Layering Ring",
@@ -129,6 +132,10 @@ DEFAULT_CASE_CATALOG: tuple[dict[str, Any], ...] = (
     },
 )
 
+DEFAULT_CASE_CATALOG: tuple[Mapping[str, Any], ...] = tuple(
+    MappingProxyType(dict(item)) for item in _RAW_CASE_CATALOG
+)
+
 
 def _serialize_evidence(ev: LaunderingRingEvidence) -> dict[str, Any]:
     return {
@@ -223,7 +230,7 @@ class WorkbenchService:
     def _run_detector(
         self, typology: str, account_id: str, min_amount: Decimal
     ) -> tuple[LaunderingRingEvidence, ...]:
-        t = typology.strip().upper()
+        t = typology.strip().upper().replace("-", "_")
         acc = account_id.strip()
         if t in ("CIRCULAR_LAYERING", "CYCLE"):
             return self._detector.detect_circular_rings(acc, min_amount=min_amount)
@@ -231,19 +238,17 @@ class WorkbenchService:
             return self._detector.detect_ubo_shell_rings(min_amount=min_amount)
         if t == "SAME_ENTITY_RING":
             return self._detector.detect_same_entity_rings(min_amount=min_amount)
-        if t in ("FAN_OUT", "FAN-OUT"):
+        if t == "FAN_OUT":
             return self._detector.detect_fan_out(
                 acc, min_amount=min_amount, min_degree=2
             )
-        if t in ("FAN_IN", "FAN-IN"):
+        if t == "FAN_IN":
             return self._detector.detect_fan_in(
                 acc, min_amount=min_amount, min_degree=2
             )
-        if t in ("GATHER_SCATTER", "GATHER-SCATTER"):
-            return self._detector.detect_gather_scatter(
-                acc, min_amount=min_amount, min_degree=2
-            )
-        if t in ("SCATTER_GATHER", "SCATTER-GATHER"):
+        if t == "GATHER_SCATTER":
+            return self._detector.detect_gather_scatter(acc, min_amount=min_amount)
+        if t == "SCATTER_GATHER":
             return self._detector.detect_scatter_gather(
                 acc, min_amount=min_amount, min_degree=2
             )
@@ -383,7 +388,7 @@ def create_app() -> FastAPI:
     def get_case_catalog() -> ApiEnvelope:
         return ApiEnvelope(
             success=True,
-            data={"cases": list(DEFAULT_CASE_CATALOG)},
+            data={"cases": [dict(c) for c in DEFAULT_CASE_CATALOG]},
             meta={"total": len(DEFAULT_CASE_CATALOG), "llm_cost": 0},
         )
 
@@ -480,9 +485,6 @@ def create_app() -> FastAPI:
             data={"alerts": [_serialize_alert(a) for a in alerts]},
             meta={"total": len(alerts)},
         )
-
-    from pathlib import Path
-    from fastapi.staticfiles import StaticFiles
 
     web_dist = Path(__file__).resolve().parents[3] / "web" / "dist"
     if web_dist.is_dir():

@@ -219,10 +219,13 @@ def test_fastapi_workbench_endpoints():
 
 
 def test_workbench_service_typology_routing_and_vertex_gemini():
+    from unittest.mock import create_autospec
+    from spanner_aml.detector import RingDetector
+
     mock_db = MagicMock()
     service = WorkbenchService(mock_db)
     ev = _sample_evidence()
-    service._detector = MagicMock()
+    service._detector = create_autospec(RingDetector, instance=True)
     service._enricher = MagicMock()
 
     for typ, method_name in (
@@ -269,3 +272,32 @@ def test_workbench_service_typology_routing_and_vertex_gemini():
     alert = sar_agent.draft_sar_for_case(inv, persist_alert=False)
     assert alert.sar_generation_source == "VERTEX_GEMINI"
     assert alert.citations_verified is True
+
+    # Test WorkbenchService high-level orchestration methods
+    service._detector.detect_circular_rings.return_value = (ev,)
+    service._enricher.enrich_evidence.return_value = inv
+    enriched = service.investigate_case(
+        "CIRCULAR_LAYERING", "ACC_RING1_A", Decimal("100"), case_id="CASE_1"
+    )
+    assert enriched.case_id == "CASE_VTX"
+
+    service._detector.detect_circular_rings.return_value = ()
+    with pytest.raises(LookupError):
+        service.investigate_case("CIRCULAR_LAYERING", "ACC_NONE", Decimal("100"))
+
+    service._interceptor = MagicMock()
+    service.intercept_payment("ACC_A", "ACC_B", Decimal("500"))
+    service._interceptor.evaluate_candidate_transfer.assert_called_once()
+
+    service._detector.detect_circular_rings.return_value = (ev,)
+    service._sar_investigator = MagicMock()
+    service._sar_investigator.draft_sar_for_case.return_value = alert
+    sar_res = service.generate_single_ticket_sar(
+        "CIRCULAR_LAYERING", "ACC_RING1_A", Decimal("100")
+    )
+    assert sar_res.alert_id == alert.alert_id
+
+    service._alert_repo = MagicMock()
+    service._alert_repo.list_alerts.return_value = (alert,)
+    assert len(service.list_alerts(limit=10)) == 1
+

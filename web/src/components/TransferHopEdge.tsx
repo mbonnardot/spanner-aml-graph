@@ -54,15 +54,8 @@ export function TransferHopEdge({
               background: isHighlighted ? '#ff832b' : '#161616',
               color: isHighlighted ? '#161616' : '#f4f4f4',
               border: `1px solid ${isHighlighted ? '#ff832b' : '#4589ff'}`,
-              padding: '2px 6px',
-              fontSize: 10,
-              fontWeight: 600,
-              fontFamily: "'IBM Plex Mono', monospace",
-              pointerEvents: 'all',
-              whiteSpace: 'nowrap',
-              zIndex: 10,
             }}
-            className="nodrag nopan"
+            className="aml-edge-badge nodrag nopan"
           >
             #{hop.hop_index} • $
             {totalAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
