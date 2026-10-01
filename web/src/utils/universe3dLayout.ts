@@ -91,14 +91,34 @@ function computeCloudScatterPosition(id: string, index: number): Vec3 {
   };
 }
 
-function computeAccountPositions3D(
+export function extractUniqueAccounts(
   investigation: EnrichedCaseInvestigation
+): readonly string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  const push = (id: string) => {
+    if (id && !seen.has(id)) {
+      seen.add(id);
+      ordered.push(id);
+    }
+  };
+  investigation.evidence.account_ids.forEach(push);
+  investigation.evidence.hops.forEach((h) => {
+    push(h.from_account_id);
+    push(h.to_account_id);
+  });
+  return ordered;
+}
+
+function computeAccountPositions3D(
+  investigation: EnrichedCaseInvestigation,
+  accounts: readonly string[]
 ): ReadonlyMap<string, Vec3> {
-  const accounts = investigation.evidence.account_ids;
   const hops = investigation.evidence.hops;
   const typology = investigation.evidence.typology;
   const map = new Map<string, Vec3>();
 
+  // 1. SCATTER_GATHER: Origin (left) -> Mule Ring (center) -> Collector Sink (right)
   if (typology === 'SCATTER_GATHER' && accounts.length >= 3) {
     const originId = hops[0]?.from_account_id ?? accounts[0];
     const sinkId =
@@ -120,6 +140,131 @@ function computeAccountPositions3D(
     return map;
   }
 
+  // 2. FAN_OUT: Single Origin Hub (left) -> 3D Arc of Beneficiaries (right)
+  if (typology === 'FAN_OUT' && accounts.length >= 2) {
+    const originId = hops[0]?.from_account_id ?? accounts[0];
+    const receivers = accounts.filter((a) => a !== originId);
+    map.set(originId, { x: -18.5, y: 0, z: 0 });
+    receivers.forEach((accId, idx) => {
+      const angle = (2 * Math.PI * idx) / Math.max(receivers.length, 1);
+      const r = 12.2;
+      map.set(accId, {
+        x: 11.5 + Math.cos(angle * 2) * 2.2,
+        y: Math.cos(angle) * r * 0.72,
+        z: Math.sin(angle) * r,
+      });
+    });
+    return map;
+  }
+
+  // 3. FAN_IN: 3D Arc of Senders (left) -> Single Collector Sink (right)
+  if (typology === 'FAN_IN' && accounts.length >= 2) {
+    const sinkCounts = new Map<string, number>();
+    hops.forEach((h) => {
+      sinkCounts.set(h.to_account_id, (sinkCounts.get(h.to_account_id) ?? 0) + 1);
+    });
+    let sinkId = hops[0]?.to_account_id ?? accounts[accounts.length - 1];
+    let maxIn = -1;
+    sinkCounts.forEach((cnt, id) => {
+      if (cnt > maxIn) {
+        maxIn = cnt;
+        sinkId = id;
+      }
+    });
+    const senders = accounts.filter((a) => a !== sinkId);
+    map.set(sinkId, { x: 18.5, y: 0, z: 0 });
+    senders.forEach((accId, idx) => {
+      const angle = (2 * Math.PI * idx) / Math.max(senders.length, 1);
+      const r = 11.5;
+      map.set(accId, {
+        x: -11.5 + Math.sin(angle * 2) * 2.0,
+        y: Math.cos(angle) * r * 0.72,
+        z: Math.sin(angle) * r,
+      });
+    });
+    return map;
+  }
+
+  // 4. GATHER_SCATTER: Senders (left) -> Central Clearinghouse Hub (center) -> Receivers (right)
+  if (typology === 'GATHER_SCATTER' && accounts.length >= 2) {
+    const degreeMap = new Map<string, number>();
+    hops.forEach((h) => {
+      degreeMap.set(h.from_account_id, (degreeMap.get(h.from_account_id) ?? 0) + 1);
+      degreeMap.set(h.to_account_id, (degreeMap.get(h.to_account_id) ?? 0) + 1);
+    });
+    let hubId = accounts[0];
+    let maxDeg = -1;
+    degreeMap.forEach((deg, id) => {
+      if (deg > maxDeg) {
+        maxDeg = deg;
+        hubId = id;
+      }
+    });
+    map.set(hubId, { x: 0, y: 0, z: 0 });
+
+    const inboundSet = new Set<string>();
+    const outboundSet = new Set<string>();
+    hops.forEach((h) => {
+      if (h.to_account_id === hubId && h.from_account_id !== hubId) {
+        inboundSet.add(h.from_account_id);
+      }
+      if (h.from_account_id === hubId && h.to_account_id !== hubId) {
+        outboundSet.add(h.to_account_id);
+      }
+    });
+
+    const peers = accounts.filter((a) => a !== hubId);
+    const leftNodes: string[] = [];
+    const rightNodes: string[] = [];
+    peers.forEach((accId, idx) => {
+      if (inboundSet.has(accId) && !outboundSet.has(accId)) {
+        leftNodes.push(accId);
+      } else if (outboundSet.has(accId) && !inboundSet.has(accId)) {
+        rightNodes.push(accId);
+      } else if (idx % 2 === 0) {
+        leftNodes.push(accId);
+      } else {
+        rightNodes.push(accId);
+      }
+    });
+
+    leftNodes.forEach((accId, idx) => {
+      const t = leftNodes.length > 1 ? idx / (leftNodes.length - 1) - 0.5 : 0;
+      map.set(accId, {
+        x: -16.5,
+        y: t * 14,
+        z: Math.sin(idx * 1.7) * 7.5,
+      });
+    });
+    rightNodes.forEach((accId, idx) => {
+      const t = rightNodes.length > 1 ? idx / (rightNodes.length - 1) - 0.5 : 0;
+      map.set(accId, {
+        x: 16.5,
+        y: t * 14,
+        z: Math.cos(idx * 1.7) * 7.5,
+      });
+    });
+    return map;
+  }
+
+  // 5. BIPARTITE & STACKED_BIPARTITE: Multi-Tier Left-to-Right Layer Columns
+  if (typology === 'BIPARTITE' || typology === 'STACKED_BIPARTITE') {
+    const count = accounts.length;
+    accounts.forEach((accId, idx) => {
+      const tierX = count <= 3
+        ? (idx - (count - 1) / 2) * 15.5
+        : ((idx % 3) - 1) * 15.5;
+      const rowOffset = Math.floor(idx / 3);
+      map.set(accId, {
+        x: tierX,
+        y: (idx % 2 === 0 ? 1 : -1) * (2.4 + rowOffset * 2.5),
+        z: (idx % 2 === 0 ? -1 : 1) * (3.2 + rowOffset * 2.0),
+      });
+    });
+    return map;
+  }
+
+  // 6. RANDOM_WALK: 8-Hop Zig-Zag Escape Trail
   if (typology === 'RANDOM_WALK') {
     const count = accounts.length;
     accounts.forEach((accId, idx) => {
@@ -134,11 +279,11 @@ function computeAccountPositions3D(
     return map;
   }
 
+  // 7. CIRCULAR_LAYERING / UBO_SHELL_RING / SAME_ENTITY_RING: Sleek 3D Ring Loop
   const count = Math.max(accounts.length, 1);
   const radius = count <= 4 ? 13.5 : 17.2;
   accounts.forEach((accId, idx) => {
     const angle = (2 * Math.PI * idx) / count - Math.PI / 2;
-    // Subtle, sleek architectural undulation instead of tall rollercoaster waves
     const elevation = Math.sin(angle * 2) * 0.85;
     map.set(accId, {
       x: Math.cos(angle) * radius,
@@ -154,20 +299,19 @@ export function buildUniverse3DSceneData(
   universe: GraphUniverseResponse | null,
   investigation: EnrichedCaseInvestigation | null
 ): Universe3DSceneData {
-  const activeAccountSet = new Set<string>(
-    investigation?.evidence.account_ids ?? []
-  );
+  const uniqueAccounts = investigation ? extractUniqueAccounts(investigation) : [];
+  const activeAccountSet = new Set<string>(uniqueAccounts);
 
   const ringNodes: RingNode3D[] = [];
   const overlayNodes: RingNode3D[] = [];
   const ringEdges: RingEdge3D[] = [];
   const tethers: OwnershipTether3D[] = [];
 
-  if (investigation) {
-    const posMap = computeAccountPositions3D(investigation);
-    const anchorId = investigation.evidence.account_ids[0] ?? '';
+  if (investigation && uniqueAccounts.length > 0) {
+    const posMap = computeAccountPositions3D(investigation, uniqueAccounts);
+    const anchorId = uniqueAccounts[0] ?? '';
 
-    investigation.evidence.account_ids.forEach((accId, idx) => {
+    uniqueAccounts.forEach((accId, idx) => {
       const ringPos = posMap.get(accId) ?? { x: 0, y: 0, z: 0 };
       const cloudPos = computeCloudScatterPosition(accId, idx);
       const profile = investigation.kyc_profiles[accId];
@@ -200,7 +344,6 @@ export function buildUniverse3DSceneData(
         ringPosition: ringPos,
         colorHex,
         badgeColor,
-        // Sleek, precision jewel-scale node radii
         radius: isAnchor ? 0.92 : 0.66,
         isAnchor,
         isHighRisk,
@@ -212,7 +355,6 @@ export function buildUniverse3DSceneData(
       const fromPos = posMap.get(hop.from_account_id) ?? { x: -10, y: 0, z: 0 };
       const toPos = posMap.get(hop.to_account_id) ?? { x: 10, y: 0, z: 0 };
 
-      // Sleek, taut geometric arc with minimal vertical lift and subtle outward bow
       const rawMidX = (fromPos.x + toPos.x) / 2;
       const rawMidY = (fromPos.y + toPos.y) / 2;
       const rawMidZ = (fromPos.z + toPos.z) / 2;
@@ -239,7 +381,7 @@ export function buildUniverse3DSceneData(
     const uboAdded = new Map<string, Vec3>();
     const bankAdded = new Map<string, Vec3>();
 
-    investigation.evidence.account_ids.forEach((accId, idx) => {
+    uniqueAccounts.forEach((accId, idx) => {
       const accPos = posMap.get(accId);
       const profile = investigation.kyc_profiles[accId];
       if (!accPos || !profile) {
@@ -294,7 +436,7 @@ export function buildUniverse3DSceneData(
             y: -10.5 - (bankAdded.size % 2) * 1.6,
             z: accPos.z * 1.08,
           };
-          bankAdded.set(bankPos ? profile.bank_id : profile.bank_id, bankPos);
+          bankAdded.set(profile.bank_id, bankPos);
           overlayNodes.push({
             id: `bank:${profile.bank_id}`,
             kind: 'bank',

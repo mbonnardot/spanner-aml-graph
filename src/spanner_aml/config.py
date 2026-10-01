@@ -41,13 +41,11 @@ def resolve_gcp_credentials(
                     self.token = fresh
                     self.expiry = datetime.now(timezone.utc).replace(
                         tzinfo=None
-                    ) + timedelta(minutes=50)
+                    ) + timedelta(minutes=4)
 
         token = _fetch_gcloud_access_token()
         if token:
-            expiry = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
-                minutes=50
-            )
+            expiry = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=4)
             return _RefreshingGcloudCredentials(
                 token=token,
                 quota_project_id=project_id,
