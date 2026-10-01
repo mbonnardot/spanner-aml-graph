@@ -324,3 +324,32 @@ def test_investigate_includes_demo_guide_and_live_gql():
         assert guide["gql_query"].startswith("GRAPH AmlGraph")
 
 
+def test_universe_endpoint_returns_background_cloud():
+    app = create_app()
+    mock_db = MagicMock()
+    mock_snapshot = MagicMock()
+    mock_db.snapshot.return_value.__enter__.return_value = mock_snapshot
+    app.dependency_overrides[get_spanner_db] = lambda: mock_db
+
+    try:
+        mock_snapshot.execute_sql.side_effect = [
+            [
+                ("ACC_BG_1", "BANK_001", "USD", False),
+                ("ACC_BG_2", "BANK_002", "EUR", True),
+            ],
+            [
+                ("TX_BG_1", "ACC_BG_1", "ACC_BG_2", Decimal("1450.00"), "USD", True),
+            ],
+        ]
+        client = TestClient(app)
+        res = client.get("/api/universe")
+        assert res.status_code == 200
+        body = res.json()
+        assert body["success"] is True
+        assert len(body["data"]["accounts"]) == 2
+        assert len(body["data"]["transactions"]) == 1
+        assert body["data"]["transactions"][0]["transaction_id"] == "TX_BG_1"
+    finally:
+        app.dependency_overrides.clear()
+
+

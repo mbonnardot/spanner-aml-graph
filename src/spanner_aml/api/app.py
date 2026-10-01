@@ -574,6 +574,54 @@ def create_app() -> FastAPI:
             meta={"total": len(DEFAULT_CASE_CATALOG), "llm_cost": 0},
         )
 
+    @app.get("/api/universe", response_model=ApiEnvelope)
+    def get_graph_universe(db: Any = Depends(get_spanner_db)) -> ApiEnvelope:
+        accounts_sql = """
+        SELECT account_id, bank_id, currency, is_flagged
+        FROM Accounts
+        LIMIT 360
+        """
+        transactions_sql = """
+        SELECT transaction_id, from_account_id, to_account_id, amount_paid, payment_currency, is_laundering
+        FROM Transactions
+        LIMIT 520
+        """
+        with db.snapshot(multi_use=True) as snapshot:
+            acc_rows = list(snapshot.execute_sql(accounts_sql))
+            tx_rows = list(snapshot.execute_sql(transactions_sql))
+
+        accounts = [
+            {
+                "account_id": str(r[0]),
+                "bank_id": str(r[1]),
+                "currency": str(r[2]),
+                "is_flagged": bool(r[3]),
+            }
+            for r in acc_rows
+        ]
+        transactions = [
+            {
+                "transaction_id": str(r[0]),
+                "from_account_id": str(r[1]),
+                "to_account_id": str(r[2]),
+                "amount_paid": float(r[3]),
+                "currency": str(r[4]),
+                "is_laundering": bool(r[5]),
+            }
+            for r in tx_rows
+        ]
+        return ApiEnvelope(
+            success=True,
+            data={
+                "accounts": accounts,
+                "transactions": transactions,
+            },
+            meta={
+                "accounts_sampled": len(accounts),
+                "transactions_sampled": len(transactions),
+            },
+        )
+
     @app.post("/api/investigate", response_model=ApiEnvelope)
     def investigate_endpoint(
         payload: InvestigateRequest,

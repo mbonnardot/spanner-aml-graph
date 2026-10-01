@@ -10,6 +10,7 @@ import { AccountNode, BankNode, EntityNode } from './components/CarbonNodes';
 import { CaseDossierSidebar } from './components/CaseDossierSidebar';
 import { DemoStoryBanner } from './components/DemoStoryBanner';
 import { InvestigationSidebar } from './components/InvestigationSidebar';
+import { ScrollytellingStage } from './components/ScrollytellingStage';
 import { TransferHopEdge } from './components/TransferHopEdge';
 import { WorkbenchHeader } from './components/WorkbenchHeader';
 import { buildReactFlowGraph } from './utils/graphLayout';
@@ -18,9 +19,11 @@ import type {
   CaseSummary,
   ComplianceAlert,
   EnrichedCaseInvestigation,
+  GraphUniverseResponse,
   HealthResponse,
   InterceptionResult,
   TypologyCode,
+  ViewMode,
 } from './types/aml';
 
 const NODE_TYPES = {
@@ -41,7 +44,9 @@ function getErrorMessage(err: unknown): string {
 }
 
 export function App() {
+  const [viewMode, setViewMode] = useState<ViewMode>('story3d');
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [universe, setUniverse] = useState<GraphUniverseResponse | null>(null);
   const [cases, setCases] = useState<readonly CaseSummary[]>([]);
   const [selectedCaseId, setSelectedCaseId] = useState<string>(
     'CASE_HI_CYCLE_10HOP'
@@ -51,7 +56,6 @@ export function App() {
   const [isLoadingGraph, setIsLoadingGraph] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  /* Progressive disclosure: start with clean money-flow path; toggle UBOs/Banks via M3 Filter Chips */
   const [showOwnershipOverlay, setShowOwnershipOverlay] =
     useState<boolean>(false);
   const [showBankOverlay, setShowBankOverlay] = useState<boolean>(false);
@@ -154,13 +158,19 @@ export function App() {
     const controller = new AbortController();
     async function bootstrap() {
       try {
-        const [healthRes, catalogRes] = await Promise.all([
+        const [healthRes, catalogRes, universeRes] = await Promise.all([
           fetch('/api/health', { signal: controller.signal }),
           fetch('/api/catalog', { signal: controller.signal }),
+          fetch('/api/universe', { signal: controller.signal }),
         ]);
         if (healthRes.ok) {
           const hEnv = (await healthRes.json()) as ApiEnvelope<HealthResponse>;
           setHealth(hEnv.data);
+        }
+        if (universeRes.ok) {
+          const uEnv =
+            (await universeRes.json()) as ApiEnvelope<GraphUniverseResponse>;
+          setUniverse(uEnv.data);
         }
         if (catalogRes.ok) {
           const cEnv = (await catalogRes.json()) as ApiEnvelope<{
@@ -337,141 +347,232 @@ export function App() {
       <WorkbenchHeader
         health={health}
         lastLatencyMs={investigation?.evidence.query_latency_ms ?? null}
+        viewMode={viewMode}
+        onChangeViewMode={setViewMode}
         onOpenSimulator={() => setSimulatorOpen(true)}
       />
 
-      <div className="m3-workspace">
-        <InvestigationSidebar
-          cases={cases}
-          selectedCaseId={selectedCaseId}
-          onSelectCase={handleSelectCatalogCase}
-          simulatorOpen={simulatorOpen}
-          onCloseSimulator={() => setSimulatorOpen(false)}
-          customTypology={customTypology}
-          onChangeCustomTypology={setCustomTypology}
-          customAnchorId={customAnchorId}
-          onChangeCustomAnchorId={setCustomAnchorId}
-          customMinAmount={customMinAmount}
-          onChangeCustomMinAmount={setCustomMinAmount}
-          onRunCustomQuery={handleRunCustomQuery}
-          isLoadingGraph={isLoadingGraph}
-          interceptSender={interceptSender}
-          onChangeInterceptSender={setInterceptSender}
-          interceptReceiver={interceptReceiver}
-          onChangeInterceptReceiver={setInterceptReceiver}
-          interceptAmount={interceptAmount}
-          onChangeInterceptAmount={setInterceptAmount}
-          onSimulateIntercept={handleSimulatePaymentIntercept}
-          isIntercepting={isIntercepting}
-          interceptResult={interceptResult}
-        />
-
-        <main className="m3-stage">
-          <DemoStoryBanner
-            guide={investigation?.demo_guide}
+      {viewMode !== 'workbench2d' ? (
+        <>
+          <ScrollytellingStage
+            health={health}
+            universe={universe}
+            cases={cases}
+            selectedCaseId={selectedCaseId}
+            onSelectCase={handleSelectCatalogCase}
             investigation={investigation}
+            isLoadingGraph={isLoadingGraph}
             totalVolumeUsd={totalVolumeUsd}
-            showGqlModal={showGqlModal}
-            onToggleGqlModal={() => setShowGqlModal((v) => !v)}
+            showOwnershipOverlay={showOwnershipOverlay}
+            onToggleOwnershipOverlay={() => setShowOwnershipOverlay((v) => !v)}
+            showBankOverlay={showBankOverlay}
+            onToggleBankOverlay={() => setShowBankOverlay((v) => !v)}
+            selectedNodeId={selectedNodeId}
+            onSelectNodeId={setSelectedNodeId}
+            selectedAccountProfile={selectedAccountProfile}
+            interceptSender={interceptSender}
+            onChangeInterceptSender={setInterceptSender}
+            interceptReceiver={interceptReceiver}
+            onChangeInterceptReceiver={setInterceptReceiver}
+            interceptAmount={interceptAmount}
+            onChangeInterceptAmount={setInterceptAmount}
+            onSimulateIntercept={handleSimulatePaymentIntercept}
+            isIntercepting={isIntercepting}
+            interceptResult={interceptResult}
+            onDraftSingleTicketSar={handleDraftSingleTicketSar}
+            isGeneratingSar={isGeneratingSar}
+            activeAlert={activeAlert}
+            freeOrbitOnly={viewMode === 'free3d'}
+          />
+          {simulatorOpen && (
+            <InvestigationSidebar
+              cases={cases}
+              selectedCaseId={selectedCaseId}
+              onSelectCase={handleSelectCatalogCase}
+              simulatorOpen={simulatorOpen}
+              onCloseSimulator={() => setSimulatorOpen(false)}
+              customTypology={customTypology}
+              onChangeCustomTypology={setCustomTypology}
+              customAnchorId={customAnchorId}
+              onChangeCustomAnchorId={setCustomAnchorId}
+              customMinAmount={customMinAmount}
+              onChangeCustomMinAmount={setCustomMinAmount}
+              onRunCustomQuery={handleRunCustomQuery}
+              isLoadingGraph={isLoadingGraph}
+              interceptSender={interceptSender}
+              onChangeInterceptSender={setInterceptSender}
+              interceptReceiver={interceptReceiver}
+              onChangeInterceptReceiver={setInterceptReceiver}
+              interceptAmount={interceptAmount}
+              onChangeInterceptAmount={setInterceptAmount}
+              onSimulateIntercept={handleSimulatePaymentIntercept}
+              isIntercepting={isIntercepting}
+              interceptResult={interceptResult}
+            />
+          )}
+        </>
+      ) : (
+        <div className="m3-workspace">
+          <InvestigationSidebar
+            cases={cases}
+            selectedCaseId={selectedCaseId}
+            onSelectCase={handleSelectCatalogCase}
+            simulatorOpen={simulatorOpen}
+            onCloseSimulator={() => setSimulatorOpen(false)}
+            customTypology={customTypology}
+            onChangeCustomTypology={setCustomTypology}
+            customAnchorId={customAnchorId}
+            onChangeCustomAnchorId={setCustomAnchorId}
+            customMinAmount={customMinAmount}
+            onChangeCustomMinAmount={setCustomMinAmount}
+            onRunCustomQuery={handleRunCustomQuery}
+            isLoadingGraph={isLoadingGraph}
+            interceptSender={interceptSender}
+            onChangeInterceptSender={setInterceptSender}
+            interceptReceiver={interceptReceiver}
+            onChangeInterceptReceiver={setInterceptReceiver}
+            interceptAmount={interceptAmount}
+            onChangeInterceptAmount={setInterceptAmount}
+            onSimulateIntercept={handleSimulatePaymentIntercept}
+            isIntercepting={isIntercepting}
+            interceptResult={interceptResult}
           />
 
-          {errorMessage && (
-            <div
-              className="m3-card m3-card--tonal-error"
-              style={{ margin: '8px 16px 0', padding: '8px 14px', fontSize: '0.8rem' }}
-            >
-              {errorMessage}
-            </div>
-          )}
+          <main className="m3-stage">
+            <DemoStoryBanner
+              guide={investigation?.demo_guide}
+              investigation={investigation}
+              totalVolumeUsd={totalVolumeUsd}
+              showGqlModal={showGqlModal}
+              onToggleGqlModal={() => setShowGqlModal((v) => !v)}
+            />
 
-          <div className="m3-canvas-wrap">
-            <div className="m3-canvas-controls-bar">
-              <button
-                type="button"
-                className={`m3-filter-chip ${showOwnershipOverlay ? 'm3-filter-chip--active' : ''}`}
-                onClick={() => setShowOwnershipOverlay((v) => !v)}
+            {errorMessage && (
+              <div
+                className="m3-card m3-card--tonal-error"
+                style={{
+                  margin: '8px 16px 0',
+                  padding: '8px 14px',
+                  fontSize: '0.8rem',
+                }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-                  {showOwnershipOverlay ? 'check' : 'person_search'}
-                </span>
-                Reveal UBO & Entities
-              </button>
+                {errorMessage}
+              </div>
+            )}
 
-              <button
-                type="button"
-                className={`m3-filter-chip ${showBankOverlay ? 'm3-filter-chip--active' : ''}`}
-                onClick={() => setShowBankOverlay((v) => !v)}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-                  {showBankOverlay ? 'check' : 'account_balance'}
-                </span>
-                Reveal Banks
-              </button>
+            <div className="m3-canvas-wrap">
+              <div className="m3-canvas-controls-bar">
+                <button
+                  type="button"
+                  className={`m3-filter-chip ${
+                    showOwnershipOverlay ? 'm3-filter-chip--active' : ''
+                  }`}
+                  onClick={() => setShowOwnershipOverlay((v) => !v)}
+                >
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ fontSize: 16 }}
+                  >
+                    {showOwnershipOverlay ? 'check' : 'person_search'}
+                  </span>
+                  Reveal UBO & Entities
+                </button>
 
-              <button
-                type="button"
-                className={`m3-filter-chip ${showGqlModal ? 'm3-filter-chip--active' : ''}`}
-                onClick={() => setShowGqlModal(true)}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-                  code
-                </span>
-                View ISO GQL Query
-              </button>
-            </div>
+                <button
+                  type="button"
+                  className={`m3-filter-chip ${
+                    showBankOverlay ? 'm3-filter-chip--active' : ''
+                  }`}
+                  onClick={() => setShowBankOverlay((v) => !v)}
+                >
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ fontSize: 16 }}
+                  >
+                    {showBankOverlay ? 'check' : 'account_balance'}
+                  </span>
+                  Reveal Banks
+                </button>
 
-            <div className="m3-canvas-legend">
-              <span>
-                <span className="m3-legend-dot" style={{ background: '#0b57d0' }} />
-                Anchor / Money Flow
-              </span>
-              <span>
-                <span className="m3-legend-dot" style={{ background: '#b3261e' }} />
-                High-Risk / PEP Linked
-              </span>
-              {showOwnershipOverlay && (
+                <button
+                  type="button"
+                  className={`m3-filter-chip ${
+                    showGqlModal ? 'm3-filter-chip--active' : ''
+                  }`}
+                  onClick={() => setShowGqlModal(true)}
+                >
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ fontSize: 16 }}
+                  >
+                    code
+                  </span>
+                  View ISO GQL Query
+                </button>
+              </div>
+
+              <div className="m3-canvas-legend">
                 <span>
-                  <span className="m3-legend-dot" style={{ background: '#7c3aed' }} />
-                  Beneficial Owner (UBO)
+                  <span
+                    className="m3-legend-dot"
+                    style={{ background: '#0b57d0' }}
+                  />
+                  Anchor / Money Flow
                 </span>
-              )}
+                <span>
+                  <span
+                    className="m3-legend-dot"
+                    style={{ background: '#b3261e' }}
+                  />
+                  High-Risk / PEP Linked
+                </span>
+                {showOwnershipOverlay && (
+                  <span>
+                    <span
+                      className="m3-legend-dot"
+                      style={{ background: '#7c3aed' }}
+                    />
+                    Beneficial Owner (UBO)
+                  </span>
+                )}
+              </div>
+
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                nodeTypes={NODE_TYPES}
+                edgeTypes={EDGE_TYPES}
+                onNodeClick={handleNodeClick}
+                fitView
+                fitViewOptions={{ padding: 0.24 }}
+                minZoom={0.25}
+                maxZoom={1.75}
+                proOptions={{ hideAttribution: true }}
+              >
+                <Background
+                  variant={BackgroundVariant.Dots}
+                  gap={22}
+                  size={1.2}
+                  color="#cbd5e1"
+                />
+                <Controls showInteractive={false} />
+              </ReactFlow>
             </div>
+          </main>
 
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              nodeTypes={NODE_TYPES}
-              edgeTypes={EDGE_TYPES}
-              onNodeClick={handleNodeClick}
-              fitView
-              fitViewOptions={{ padding: 0.24 }}
-              minZoom={0.25}
-              maxZoom={1.75}
-              proOptions={{ hideAttribution: true }}
-            >
-              <Background
-                variant={BackgroundVariant.Dots}
-                gap={22}
-                size={1.2}
-                color="#cbd5e1"
-              />
-              <Controls showInteractive={false} />
-            </ReactFlow>
-          </div>
-        </main>
-
-        <CaseDossierSidebar
-          investigation={investigation}
-          selectedAccountProfile={selectedAccountProfile}
-          highlightedHopTxId={highlightedHopTxId}
-          onHoverHop={setHighlightedHopTxId}
-          onSelectAccountId={setSelectedNodeId}
-          onDraftSingleTicketSar={handleDraftSingleTicketSar}
-          isGeneratingSar={isGeneratingSar}
-          activeAlert={activeAlert}
-          savedAlerts={savedAlerts}
-        />
-      </div>
+          <CaseDossierSidebar
+            investigation={investigation}
+            selectedAccountProfile={selectedAccountProfile}
+            highlightedHopTxId={highlightedHopTxId}
+            onHoverHop={setHighlightedHopTxId}
+            onSelectAccountId={setSelectedNodeId}
+            onDraftSingleTicketSar={handleDraftSingleTicketSar}
+            isGeneratingSar={isGeneratingSar}
+            activeAlert={activeAlert}
+            savedAlerts={savedAlerts}
+          />
+        </div>
+      )}
     </div>
   );
 }

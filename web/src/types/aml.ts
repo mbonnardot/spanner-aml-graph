@@ -162,3 +162,26 @@ export interface TransferEdgeData extends Record<string, unknown> {
   readonly allHopsBetweenPair: readonly TransferHop[];
   readonly isHighlighted: boolean;
 }
+
+export interface UniverseAccount {
+  readonly account_id: string;
+  readonly bank_id: string;
+  readonly currency: string;
+  readonly is_flagged: boolean;
+}
+
+export interface UniverseTransaction {
+  readonly transaction_id: string;
+  readonly from_account_id: string;
+  readonly to_account_id: string;
+  readonly amount_paid: number;
+  readonly currency: string;
+  readonly is_laundering: boolean;
+}
+
+export interface GraphUniverseResponse {
+  readonly accounts: readonly UniverseAccount[];
+  readonly transactions: readonly UniverseTransaction[];
+}
+
+export type ViewMode = 'story3d' | 'free3d' | 'workbench2d';
