@@ -45,10 +45,10 @@ function createRadialGlowTexture(): THREE.CanvasTexture {
   canvas.height = 64;
   const ctx = canvas.getContext('2d');
   if (ctx) {
-    const grad = ctx.createRadialGradient(32, 32, 2, 32, 32, 32);
+    const grad = ctx.createRadialGradient(32, 32, 1.5, 32, 32, 30);
     grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
-    grad.addColorStop(0.28, 'rgba(255, 255, 255, 0.72)');
-    grad.addColorStop(0.65, 'rgba(255, 255, 255, 0.16)');
+    grad.addColorStop(0.22, 'rgba(255, 255, 255, 0.65)');
+    grad.addColorStop(0.55, 'rgba(255, 255, 255, 0.12)');
     grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 64, 64);
@@ -80,6 +80,10 @@ export function TransactionUniverse3D({
 }: TransactionUniverse3DProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const labelElsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const zoomControlRef = useRef<{
+    zoomBy: (delta: number) => void;
+    resetView: () => void;
+  } | null>(null);
 
   const sceneData = useMemo(
     () => buildUniverse3DSceneData(universe, investigation),
@@ -99,6 +103,8 @@ export function TransactionUniverse3D({
   showBankRef.current = showBankOverlay;
   const interactiveOrbitRef = useRef(interactiveOrbit);
   interactiveOrbitRef.current = interactiveOrbit;
+  const onSelectNodeIdRef = useRef(onSelectNodeId);
+  onSelectNodeIdRef.current = onSelectNodeId;
 
   // Three.js scene graph handles
   const cloudGroupRef = useRef<THREE.Group | null>(null);
@@ -109,6 +115,7 @@ export function TransactionUniverse3D({
   const bgLinesMatRef = useRef<THREE.LineBasicMaterial | null>(null);
   const nodeBundlesRef = useRef<NodeMeshBundle[]>([]);
   const edgeMeshesRef = useRef<THREE.Mesh[]>([]);
+  const arrowMeshesRef = useRef<THREE.Mesh[]>([]);
   const pulseItemsRef = useRef<PulseItem[]>([]);
   const glowTexRef = useRef<THREE.CanvasTexture | null>(null);
 
@@ -123,10 +130,10 @@ export function TransactionUniverse3D({
     const height = container.clientHeight || window.innerHeight;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x050811, 0.0042);
+    scene.fog = new THREE.FogExp2(0x050811, 0.0038);
 
-    const camera = new THREE.PerspectiveCamera(44, width / height, 0.5, 600);
-    camera.position.set(0, 26, 98);
+    const camera = new THREE.PerspectiveCamera(42, width / height, 0.5, 650);
+    camera.position.set(0, 30, 112);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -140,27 +147,41 @@ export function TransactionUniverse3D({
 
     glowTexRef.current = createRadialGlowTexture();
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.25);
     scene.add(ambientLight);
 
     const keyLight = new THREE.DirectionalLight(0x38bdf8, 2.2);
-    keyLight.position.set(40, 70, 50);
+    keyLight.position.set(42, 75, 55);
     scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight(0xa855f7, 1.5);
+    const rimLight = new THREE.DirectionalLight(0xa855f7, 1.45);
     rimLight.position.set(-45, -25, -40);
     scene.add(rimLight);
 
     const polarGrid = new THREE.PolarGridHelper(
-      44,
-      16,
-      6,
+      34,
+      12,
+      5,
       64,
       0x1e293b,
       0x0f172a
     );
-    polarGrid.position.y = -16;
+    polarGrid.position.y = -13;
     scene.add(polarGrid);
+
+    // Subtle expanding GQL radar ring on the floor plane
+    const radarGeo = new THREE.RingGeometry(16.8, 17.35, 64);
+    radarGeo.rotateX(-Math.PI / 2);
+    const radarMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.22,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+    });
+    const radarRing = new THREE.Mesh(radarGeo, radarMat);
+    radarRing.position.y = -12.9;
+    scene.add(radarRing);
 
     const cloudGroup = new THREE.Group();
     const ringGroup = new THREE.Group();
@@ -178,23 +199,41 @@ export function TransactionUniverse3D({
 
     // Smooth damped animation state
     let isDragging = false;
+    let pointerDownX = 0;
+    let pointerDownY = 0;
     let prevX = 0;
     let prevY = 0;
     let userAzimuthOffset = 0;
     let userPolarOffset = 0;
     let userZoomOffset = 0;
 
+    zoomControlRef.current = {
+      zoomBy: (delta: number) => {
+        userZoomOffset = clamp(userZoomOffset + delta, -28, 70);
+      },
+      resetView: () => {
+        userAzimuthOffset = 0;
+        userPolarOffset = 0;
+        userZoomOffset = 0;
+      },
+    };
+
     let dampedIsolate = 0;
+    let dampedRightBias = 0;
     let dampedOverlay = 0;
-    let dampedDistance = 98;
-    let dampedPolar = 1.18;
-    let dampedAzimuth = 0.35;
+    let dampedDistance = 112;
+    let dampedPolar = 1.16;
+    let dampedAzimuth = 0.32;
     const dampedTarget = new THREE.Vector3(0, 0, 0);
     const projVec = new THREE.Vector3();
+    const raycaster = new THREE.Raycaster();
+    const pointerNdc = new THREE.Vector2();
 
     const domElem = renderer.domElement;
     const onPointerDown = (e: PointerEvent) => {
       isDragging = true;
+      pointerDownX = e.clientX;
+      pointerDownY = e.clientY;
       prevX = e.clientX;
       prevY = e.clientY;
     };
@@ -207,23 +246,39 @@ export function TransactionUniverse3D({
       prevX = e.clientX;
       prevY = e.clientY;
       userAzimuthOffset -= dx * 0.0055;
-      userPolarOffset = clamp(userPolarOffset - dy * 0.0055, -0.55, 0.55);
+      userPolarOffset = clamp(userPolarOffset - dy * 0.0055, -0.52, 0.52);
     };
-    const onPointerUp = () => {
-      isDragging = false;
-    };
-    const onWheel = (e: WheelEvent) => {
-      if (!interactiveOrbitRef.current) {
+    const onPointerUp = (e: PointerEvent) => {
+      if (!isDragging) {
         return;
       }
-      e.preventDefault();
-      userZoomOffset = clamp(userZoomOffset + e.deltaY * 0.04, -26, 65);
+      isDragging = false;
+      const moveDist = Math.hypot(
+        e.clientX - pointerDownX,
+        e.clientY - pointerDownY
+      );
+      if (moveDist < 6 && dampedIsolate > 0.45) {
+        const rect = domElem.getBoundingClientRect();
+        pointerNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        pointerNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(pointerNdc, camera);
+        const meshes = nodeBundlesRef.current.map((b) => b.coreMesh);
+        const hits = raycaster.intersectObjects(meshes, false);
+        if (hits.length > 0) {
+          const hitMesh = hits[0].object;
+          const found = nodeBundlesRef.current.find(
+            (b) => b.coreMesh === hitMesh
+          );
+          if (found) {
+            onSelectNodeIdRef.current(found.node.id);
+          }
+        }
+      }
     };
 
     domElem.addEventListener('pointerdown', onPointerDown);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
-    domElem.addEventListener('wheel', onWheel, { passive: false });
 
     const onResize = () => {
       if (!mountRef.current) {
@@ -253,25 +308,30 @@ export function TransactionUniverse3D({
       // 1. Compute continuous isolation factor (0 = disguised in cloud, 1 = isolated ring)
       const targetIsolate = isFreeOrbit
         ? 1
-        : smoothstep(0.02, 0.20, rawScroll);
+        : smoothstep(0.02, 0.19, rawScroll);
       dampedIsolate += (targetIsolate - dampedIsolate) * 0.085;
 
+      // Subtle radar pulse on the floor
+      const pulsePhase = (clockTime * 0.42) % 1;
+      radarRing.scale.setScalar(0.65 + pulsePhase * 0.85);
+      radarMat.opacity = (1 - pulsePhase) * 0.26 * dampedIsolate;
+
       // 2. Background Cloud Expansion & Opacity
-      cloudGroup.rotation.y += 0.0012 * (1.25 - dampedIsolate * 0.7);
-      cloudGroup.rotation.x = Math.sin(clockTime * 0.25) * 0.05;
-      const cloudScale = 1 + dampedIsolate * 0.85;
+      cloudGroup.rotation.y += 0.001 * (1.2 - dampedIsolate * 0.65);
+      cloudGroup.rotation.x = Math.sin(clockTime * 0.22) * 0.04;
+      const cloudScale = 1 + dampedIsolate * 0.78;
       cloudGroup.scale.setScalar(cloudScale);
 
       if (bgPointsMatRef.current && bgLinesMatRef.current) {
-        bgPointsMatRef.current.opacity = 0.88 - dampedIsolate * 0.79;
-        bgLinesMatRef.current.opacity = 0.18 - dampedIsolate * 0.155;
+        bgPointsMatRef.current.opacity = 0.82 - dampedIsolate * 0.72;
+        bgLinesMatRef.current.opacity = 0.14 - dampedIsolate * 0.12;
       }
 
       // 3. Morph Ring Nodes from Cloud Scatter Position -> Isolated Ring Position
       nodeBundlesRef.current.forEach((bundle, idx) => {
         const { cloudPosition, ringPosition } = bundle.node;
         const driftY =
-          Math.sin(clockTime * 1.6 + idx * 0.9) * 0.35 * dampedIsolate;
+          Math.sin(clockTime * 1.4 + idx * 0.9) * 0.16 * dampedIsolate;
 
         const x =
           cloudPosition.x +
@@ -285,35 +345,56 @@ export function TransactionUniverse3D({
           (ringPosition.z - cloudPosition.z) * dampedIsolate;
 
         bundle.group.position.set(x, y, z);
-        const nodeScale = 0.55 + dampedIsolate * 0.45;
+        const nodeScale = 0.68 + dampedIsolate * 0.32;
         bundle.group.scale.setScalar(nodeScale);
         (bundle.haloSprite.material as THREE.SpriteMaterial).opacity =
-          0.25 + dampedIsolate * 0.65;
+          0.22 + dampedIsolate * 0.58;
       });
 
-      // 4. Reveal 3D Transfer Tubes & Pulses once nodes converge into ring
-      const tubeReveal = smoothstep(0.42, 0.96, dampedIsolate);
+      // 4. Reveal Sleek 3D Transfer Tubes, Arrowheads & Pulses
+      const tubeReveal = smoothstep(0.4, 0.95, dampedIsolate);
       edgeMeshesRef.current.forEach((mesh, idx) => {
         const mat = mesh.material as THREE.MeshStandardMaterial;
+        const arrowMesh = arrowMeshesRef.current[idx];
+        const arrowMat = arrowMesh
+          ? (arrowMesh.material as THREE.MeshBasicMaterial)
+          : null;
+
         mesh.visible = tubeReveal > 0.02;
+        if (arrowMesh) {
+          arrowMesh.visible = tubeReveal > 0.05;
+        }
+
         if (curChapter === 3) {
           if (idx === curHopIdx) {
             mat.color.setHex(0x38bdf8);
             mat.emissive.setHex(0x38bdf8);
-            mat.emissiveIntensity = 1.1;
-            mat.opacity = tubeReveal;
+            mat.emissiveIntensity = 1.15;
+            mat.opacity = tubeReveal * 0.96;
+            if (arrowMat) {
+              arrowMat.color.setHex(0x38bdf8);
+              arrowMat.opacity = tubeReveal;
+            }
           } else {
             mat.color.setHex(0x334155);
             mat.emissive.setHex(0x1e293b);
-            mat.emissiveIntensity = 0.15;
-            mat.opacity = tubeReveal * 0.28;
+            mat.emissiveIntensity = 0.14;
+            mat.opacity = tubeReveal * 0.26;
+            if (arrowMat) {
+              arrowMat.color.setHex(0x475569);
+              arrowMat.opacity = tubeReveal * 0.32;
+            }
           }
         } else {
           const baseColor = idx === 0 ? 0x38bdf8 : 0x6366f1;
           mat.color.setHex(baseColor);
           mat.emissive.setHex(baseColor);
-          mat.emissiveIntensity = 0.55;
-          mat.opacity = tubeReveal * 0.82;
+          mat.emissiveIntensity = 0.6;
+          mat.opacity = tubeReveal * 0.78;
+          if (arrowMat) {
+            arrowMat.color.setHex(idx === 0 ? 0x38bdf8 : 0x818cf8);
+            arrowMat.opacity = tubeReveal * 0.88;
+          }
         }
       });
 
@@ -322,13 +403,13 @@ export function TransactionUniverse3D({
         p.glowSprite.visible = tubeReveal > 0.2;
         const isActiveHop = curChapter === 3 && p.hopIdx === curHopIdx;
         p.offset =
-          (p.offset + (isActiveHop ? p.speed * 1.9 : p.speed)) % 1;
+          (p.offset + (isActiveHop ? p.speed * 1.85 : p.speed)) % 1;
         const pt = p.curve.getPointAt(p.offset);
         p.mesh.position.copy(pt);
         p.glowSprite.position.copy(pt);
-        const s = (isActiveHop ? 1.55 : 0.95) * tubeReveal;
+        const s = (isActiveHop ? 1.35 : 0.85) * tubeReveal;
         p.mesh.scale.setScalar(s);
-        p.glowSprite.scale.setScalar(s * 4.5);
+        p.glowSprite.scale.setScalar(s * 2.35);
       });
 
       // 5. Elevated UBO & Bank Layer (Chapter 4 or manual toggle)
@@ -338,40 +419,53 @@ export function TransactionUniverse3D({
       dampedOverlay += (targetOverlay - dampedOverlay) * 0.08;
       if (overlayGroupRef.current) {
         overlayGroupRef.current.visible = dampedOverlay > 0.02;
-        overlayGroupRef.current.position.y = (1 - dampedOverlay) * 8;
+        overlayGroupRef.current.position.y = (1 - dampedOverlay) * 6;
       }
 
       if (shieldGroupRef.current) {
-        shieldGroupRef.current.rotation.y += 0.02;
+        shieldGroupRef.current.rotation.y += 0.018;
       }
 
-      // 6. Camera Choreography (Target & Spherical Distance)
-      // Shift lookAt target slightly left (-10) when cards are on the left so the 3D ring sits cleanly on the right!
-      const cardOffsetX = isFreeOrbit ? 0 : -10.5 * dampedIsolate;
-      let desiredTargetX = cardOffsetX;
+      // 6. Camera Choreography & Right-Side Viewport Centering
+      // Use camera.setViewOffset so the 3D ring origin (0,0,0) is ALWAYS centered on the right half
+      // of the screen (~68% from left edge) regardless of 360-degree camera orbit!
+      const w = mountRef.current?.clientWidth || window.innerWidth;
+      const h = mountRef.current?.clientHeight || window.innerHeight;
+      const targetRightBias = isFreeOrbit ? 0 : dampedIsolate;
+      dampedRightBias += (targetRightBias - dampedRightBias) * 0.08;
+
+      if (dampedRightBias > 0.005 && w > 900) {
+        const pixelShiftRight = Math.round(-w * 0.185 * dampedRightBias);
+        camera.setViewOffset(w, h, pixelShiftRight, 0, w, h);
+      } else {
+        camera.clearViewOffset();
+      }
+
+      let desiredTargetX = 0;
       let desiredTargetY = 0;
       let desiredTargetZ = 0;
-      let desiredDistance = 98 - dampedIsolate * 46;
-      let desiredPolar = 1.18 - dampedIsolate * 0.14;
+      // Zoomed out distances so the entire ring and callouts sit comfortably on the right
+      let desiredDistance = 112 - dampedIsolate * 36; // 112 -> 76
+      let desiredPolar = 1.14 - dampedIsolate * 0.12;
 
       if (curChapter === 3 && curData.ringEdges.length > 0 && !isFreeOrbit) {
         const edge =
           curData.ringEdges[curHopIdx] ?? curData.ringEdges[0];
         if (edge) {
-          desiredTargetX =
-            (edge.fromPos.x + edge.toPos.x) * 0.35 + cardOffsetX * 0.7;
-          desiredTargetY = (edge.fromPos.y + edge.toPos.y) * 0.35 + 1.5;
-          desiredTargetZ = (edge.fromPos.z + edge.toPos.z) * 0.35;
-          desiredDistance = 38;
-          desiredPolar = 1.06;
+          // Gently bias focus toward active hop while keeping whole ring in view
+          desiredTargetX = (edge.fromPos.x + edge.toPos.x) * 0.22;
+          desiredTargetY = (edge.fromPos.y + edge.toPos.y) * 0.22 + 0.5;
+          desiredTargetZ = (edge.fromPos.z + edge.toPos.z) * 0.22;
+          desiredDistance = 64;
+          desiredPolar = 1.04;
         }
       } else if (curChapter === 4 && !isFreeOrbit) {
-        desiredTargetY = 3.5;
-        desiredDistance = 58;
-        desiredPolar = 1.24;
+        desiredTargetY = 1.5;
+        desiredDistance = 82;
+        desiredPolar = 1.2;
       } else if (curChapter === 5 && !isFreeOrbit) {
-        desiredDistance = 46;
-        desiredPolar = 0.98;
+        desiredDistance = 72;
+        desiredPolar = 1.0;
       }
 
       dampedTarget.x += (desiredTargetX - dampedTarget.x) * 0.07;
@@ -386,7 +480,7 @@ export function TransactionUniverse3D({
       );
 
       if (!isDragging) {
-        dampedAzimuth += 0.0018 * (1.3 - dampedIsolate * 0.55);
+        dampedAzimuth += 0.0015 * (1.25 - dampedIsolate * 0.55);
       }
       const totalAzimuth = dampedAzimuth + userAzimuthOffset;
 
@@ -406,8 +500,6 @@ export function TransactionUniverse3D({
 
       // 7. Direct-DOM 60fps Floating Callout Positioning (Zero React state lag)
       if (mountRef.current) {
-        const w = mountRef.current.clientWidth || window.innerWidth;
-        const h = mountRef.current.clientHeight || window.innerHeight;
         const activeEdge = curData.ringEdges[curHopIdx];
 
         nodeBundlesRef.current.forEach((bundle, idx) => {
@@ -415,7 +507,7 @@ export function TransactionUniverse3D({
           if (!el) {
             return;
           }
-          if (dampedIsolate < 0.62) {
+          if (dampedIsolate < 0.64) {
             el.style.opacity = '0';
             el.style.pointerEvents = 'none';
             return;
@@ -427,12 +519,12 @@ export function TransactionUniverse3D({
             (activeEdge.fromId === bundle.node.id ||
               activeEdge.toId === bundle.node.id);
 
-          // Show callouts only for key nodes so the 3D scene stays clean and uncluttered
+          // Keep labels clean and uncluttered
           const shouldDisplay =
             bundle.node.isAnchor ||
             bundle.node.isHighRisk ||
             isHopEndpoint ||
-            curData.ringNodes.length <= 5 ||
+            curData.ringNodes.length <= 6 ||
             idx % 2 === 0;
 
           if (!shouldDisplay) {
@@ -442,18 +534,19 @@ export function TransactionUniverse3D({
           }
 
           projVec.copy(bundle.group.position);
-          projVec.y += bundle.node.radius + 1.4;
+          projVec.y += bundle.node.radius + 0.85;
           projVec.project(camera);
 
           const screenX = (projVec.x * 0.5 + 0.5) * w;
           const screenY = (-projVec.y * 0.5 + 0.5) * h;
+          const minX = !isFreeOrbit && w > 960 ? 520 : 40;
           const inBounds =
             projVec.z < 1 &&
             projVec.z > -1 &&
-            screenX > 40 &&
-            screenX < w - 40 &&
-            screenY > 70 &&
-            screenY < h - 30;
+            screenX > minX &&
+            screenX < w - 36 &&
+            screenY > 74 &&
+            screenY < h - 32;
 
           if (!inBounds) {
             el.style.opacity = '0';
@@ -463,9 +556,11 @@ export function TransactionUniverse3D({
 
           const opacity =
             curChapter === 3 && !isHopEndpoint && !bundle.node.isAnchor
-              ? 0.42
+              ? 0.48
               : 0.96;
-          el.style.opacity = String(opacity * smoothstep(0.62, 0.9, dampedIsolate));
+          el.style.opacity = String(
+            opacity * smoothstep(0.64, 0.92, dampedIsolate)
+          );
           el.style.pointerEvents = 'auto';
           el.style.transform = `translate3d(${screenX.toFixed(1)}px, ${screenY.toFixed(1)}px, 0) translate(-50%, -100%)`;
         });
@@ -479,7 +574,6 @@ export function TransactionUniverse3D({
       domElem.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
-      domElem.removeEventListener('wheel', onWheel);
       window.removeEventListener('resize', onResize);
       renderer.dispose();
     };
@@ -497,7 +591,7 @@ export function TransactionUniverse3D({
       return;
     }
 
-    // 1. Background Cloud (Additive Glowing Particles + Subtle Web)
+    // 1. Background Cloud (Crisp Starlight Particles + Subtle Web)
     cloudGroup.clear();
     const ptsGeo = new THREE.BufferGeometry();
     ptsGeo.setAttribute(
@@ -509,11 +603,11 @@ export function TransactionUniverse3D({
       new THREE.BufferAttribute(sceneData.background.nodeColors, 3)
     );
     const ptsMat = new THREE.PointsMaterial({
-      size: 3.6,
+      size: 1.35,
       map: glowTex ?? undefined,
       vertexColors: true,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.82,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
@@ -528,16 +622,17 @@ export function TransactionUniverse3D({
     const lineMat = new THREE.LineBasicMaterial({
       color: 0x38bdf8,
       transparent: true,
-      opacity: 0.16,
+      opacity: 0.13,
       blending: THREE.AdditiveBlending,
     });
     bgLinesMatRef.current = lineMat;
     cloudGroup.add(new THREE.LineSegments(lineGeo, lineMat));
 
-    // 2. Foreground Laundering Ring Nodes & Curved 3D Tubes
+    // 2. Foreground Laundering Ring Nodes & Sleek Fiber-Optic 3D Tubes
     ringGroup.clear();
     nodeBundlesRef.current = [];
     edgeMeshesRef.current = [];
+    arrowMeshesRef.current = [];
     pulseItemsRef.current = [];
 
     sceneData.ringNodes.forEach((node) => {
@@ -548,27 +643,43 @@ export function TransactionUniverse3D({
         node.cloudPosition.z
       );
 
-      const sphereGeo = new THREE.SphereGeometry(node.radius, 28, 28);
+      const sphereGeo = new THREE.SphereGeometry(node.radius, 24, 24);
       const sphereMat = new THREE.MeshStandardMaterial({
         color: node.colorHex,
         emissive: node.colorHex,
-        emissiveIntensity: node.isAnchor ? 0.9 : 0.6,
-        roughness: 0.18,
-        metalness: 0.3,
+        emissiveIntensity: node.isAnchor ? 0.95 : 0.65,
+        roughness: 0.15,
+        metalness: 0.35,
       });
       const coreMesh = new THREE.Mesh(sphereGeo, sphereMat);
       group.add(coreMesh);
+
+      if (node.isAnchor || node.isHighRisk) {
+        const ringGeo = new THREE.RingGeometry(
+          node.radius * 1.35,
+          node.radius * 1.52,
+          32
+        );
+        ringGeo.rotateX(-Math.PI / 2);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: node.colorHex,
+          transparent: true,
+          opacity: 0.65,
+          side: THREE.DoubleSide,
+        });
+        group.add(new THREE.Mesh(ringGeo, ringMat));
+      }
 
       const spriteMat = new THREE.SpriteMaterial({
         map: glowTex ?? undefined,
         color: node.colorHex,
         transparent: true,
-        opacity: 0.75,
+        opacity: 0.68,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       });
       const haloSprite = new THREE.Sprite(spriteMat);
-      haloSprite.scale.setScalar(node.radius * 5.2);
+      haloSprite.scale.setScalar(node.radius * 3.1);
       group.add(haloSprite);
 
       ringGroup.add(group);
@@ -579,6 +690,8 @@ export function TransactionUniverse3D({
         node,
       });
     });
+
+    const upAxis = new THREE.Vector3(0, 1, 0);
 
     sceneData.ringEdges.forEach((edge, idx) => {
       const curve = new THREE.CatmullRomCurve3([
@@ -591,20 +704,36 @@ export function TransactionUniverse3D({
         new THREE.Vector3(edge.toPos.x, edge.toPos.y, edge.toPos.z),
       ]);
 
-      const tubeGeo = new THREE.TubeGeometry(curve, 36, 0.24, 12, false);
+      // Sleek, thin fiber-optic conduit
+      const tubeGeo = new THREE.TubeGeometry(curve, 32, 0.095, 10, false);
       const tubeMat = new THREE.MeshStandardMaterial({
         color: edge.colorHex,
         emissive: edge.colorHex,
         emissiveIntensity: 0.65,
         transparent: true,
-        opacity: 0.85,
+        opacity: 0.8,
       });
       const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
       ringGroup.add(tubeMesh);
       edgeMeshesRef.current.push(tubeMesh);
 
+      // Sleek directional cone arrowhead at t = 0.76 along the hop
+      const arrowPos = curve.getPointAt(0.76);
+      const tangent = curve.getTangentAt(0.76).normalize();
+      const arrowGeo = new THREE.ConeGeometry(0.22, 0.58, 12);
+      const arrowMat = new THREE.MeshBasicMaterial({
+        color: edge.colorHex,
+        transparent: true,
+        opacity: 0.9,
+      });
+      const arrowMesh = new THREE.Mesh(arrowGeo, arrowMat);
+      arrowMesh.position.copy(arrowPos);
+      arrowMesh.quaternion.setFromUnitVectors(upAxis, tangent);
+      ringGroup.add(arrowMesh);
+      arrowMeshesRef.current.push(arrowMesh);
+
       const pulseColor = idx === 0 ? 0x38bdf8 : 0xf59e0b;
-      const pulseGeo = new THREE.SphereGeometry(0.48, 14, 14);
+      const pulseGeo = new THREE.SphereGeometry(0.22, 12, 12);
       const pulseMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
       const pulseMesh = new THREE.Mesh(pulseGeo, pulseMat);
       ringGroup.add(pulseMesh);
@@ -613,7 +742,7 @@ export function TransactionUniverse3D({
         map: glowTex ?? undefined,
         color: pulseColor,
         transparent: true,
-        opacity: 0.95,
+        opacity: 0.9,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       });
@@ -625,7 +754,7 @@ export function TransactionUniverse3D({
         glowSprite,
         curve,
         hopIdx: idx,
-        speed: 0.0048 + (idx % 3) * 0.001,
+        speed: 0.0046 + (idx % 3) * 0.0009,
         offset: (idx * 0.19) % 1,
       });
     });
@@ -637,9 +766,9 @@ export function TransactionUniverse3D({
         node.kind === 'ubo'
           ? new THREE.OctahedronGeometry(node.radius, 0)
           : new THREE.BoxGeometry(
-              node.radius * 1.3,
-              node.radius * 1.3,
-              node.radius * 1.3
+              node.radius * 1.25,
+              node.radius * 1.25,
+              node.radius * 1.25
             );
       const mat = new THREE.MeshStandardMaterial({
         color: node.colorHex,
@@ -664,7 +793,7 @@ export function TransactionUniverse3D({
       const tetherMat = new THREE.LineBasicMaterial({
         color: tether.colorHex,
         transparent: true,
-        opacity: 0.72,
+        opacity: 0.62,
         blending: THREE.AdditiveBlending,
       });
       overlayGroup.add(new THREE.Line(tetherGeo, tetherMat));
@@ -678,11 +807,11 @@ export function TransactionUniverse3D({
       const midX =
         (firstNode.ringPosition.x + lastNode.ringPosition.x) / 2;
       const midY =
-        (firstNode.ringPosition.y + lastNode.ringPosition.y) / 2 + 3.5;
+        (firstNode.ringPosition.y + lastNode.ringPosition.y) / 2 + 1.8;
       const midZ =
         (firstNode.ringPosition.z + lastNode.ringPosition.z) / 2;
 
-      const shieldGeo = new THREE.OctahedronGeometry(2.6, 1);
+      const shieldGeo = new THREE.OctahedronGeometry(1.45, 1);
       const shieldMat = new THREE.MeshBasicMaterial({
         color: 0xf43f5e,
         wireframe: true,
@@ -731,7 +860,7 @@ export function TransactionUniverse3D({
                 className="m3-node3d-pill__dot"
                 style={{
                   background: node.badgeColor,
-                  boxShadow: `0 0 10px ${node.badgeColor}`,
+                  boxShadow: `0 0 8px ${node.badgeColor}`,
                 }}
               />
               <span className="m3-node3d-pill__text">
@@ -743,6 +872,41 @@ export function TransactionUniverse3D({
             </button>
           );
         })}
+      </div>
+
+      {/* Bottom-Right 3D Camera Zoom & Orbit Controls */}
+      <div className="m3-universe3d-controls">
+        <button
+          type="button"
+          className="m3-universe3d-ctrl-btn"
+          title="Zoom In"
+          onClick={() => zoomControlRef.current?.zoomBy(-10)}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+            add
+          </span>
+        </button>
+        <button
+          type="button"
+          className="m3-universe3d-ctrl-btn"
+          title="Zoom Out"
+          onClick={() => zoomControlRef.current?.zoomBy(10)}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+            remove
+          </span>
+        </button>
+        <button
+          type="button"
+          className="m3-universe3d-ctrl-btn"
+          title="Reset 3D Camera View"
+          onClick={() => zoomControlRef.current?.resetView()}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 15 }}>
+            center_focus_strong
+          </span>
+          <span>Reset View</span>
+        </button>
       </div>
     </div>
   );

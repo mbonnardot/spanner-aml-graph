@@ -83,10 +83,10 @@ function computeCloudScatterPosition(id: string, index: number): Vec3 {
   const u3 = deterministicUnit(id, 47 + index);
   const theta = u1 * Math.PI * 2;
   const phi = Math.acos(2 * u2 - 1);
-  const radius = 32 + u3 * 46;
+  const radius = 34 + u3 * 44;
   return {
     x: radius * Math.sin(phi) * Math.cos(theta),
-    y: radius * Math.cos(phi) * 0.65,
+    y: radius * Math.cos(phi) * 0.58,
     z: radius * Math.sin(phi) * Math.sin(theta),
   };
 }
@@ -105,15 +105,15 @@ function computeAccountPositions3D(
       hops[hops.length - 1]?.to_account_id ?? accounts[accounts.length - 1];
     const mules = accounts.filter((a) => a !== originId && a !== sinkId);
 
-    map.set(originId, { x: -26, y: 2, z: 0 });
-    map.set(sinkId, { x: 26, y: -2, z: 0 });
+    map.set(originId, { x: -19, y: 0.6, z: 0 });
+    map.set(sinkId, { x: 19, y: -0.6, z: 0 });
 
     mules.forEach((accId, idx) => {
       const angle = (2 * Math.PI * idx) / Math.max(mules.length, 1);
-      const ringRadius = 15.5;
+      const ringRadius = 11.2;
       map.set(accId, {
-        x: Math.sin(angle * 2) * 3.5,
-        y: Math.cos(angle) * ringRadius,
+        x: Math.sin(angle * 2) * 1.1,
+        y: Math.cos(angle) * ringRadius * 0.72,
         z: Math.sin(angle) * ringRadius,
       });
     });
@@ -124,21 +124,22 @@ function computeAccountPositions3D(
     const count = accounts.length;
     accounts.forEach((accId, idx) => {
       const t = count > 1 ? idx / (count - 1) - 0.5 : 0;
-      const waveAngle = idx * 0.95;
+      const waveAngle = idx * 0.85;
       map.set(accId, {
-        x: t * 48,
-        y: Math.sin(waveAngle) * 8.5,
-        z: Math.cos(waveAngle) * 11.5,
+        x: t * 34,
+        y: Math.sin(waveAngle) * 3.4,
+        z: Math.cos(waveAngle) * 5.6,
       });
     });
     return map;
   }
 
   const count = Math.max(accounts.length, 1);
-  const radius = count <= 4 ? 16 : 22;
+  const radius = count <= 4 ? 13.5 : 17.2;
   accounts.forEach((accId, idx) => {
     const angle = (2 * Math.PI * idx) / count - Math.PI / 2;
-    const elevation = Math.sin(angle * 2) * 3.6;
+    // Subtle, sleek architectural undulation instead of tall rollercoaster waves
+    const elevation = Math.sin(angle * 2) * 0.85;
     map.set(accId, {
       x: Math.cos(angle) * radius,
       y: elevation,
@@ -182,7 +183,7 @@ export function buildUniverse3DSceneData(
         ? 0x38bdf8
         : isHighRisk
           ? 0xf43f5e
-          : 0x6366f1;
+          : 0x818cf8;
       const badgeColor = isAnchor
         ? '#38bdf8'
         : isHighRisk
@@ -199,7 +200,8 @@ export function buildUniverse3DSceneData(
         ringPosition: ringPos,
         colorHex,
         badgeColor,
-        radius: isAnchor ? 1.85 : 1.35,
+        // Sleek, precision jewel-scale node radii
+        radius: isAnchor ? 0.92 : 0.66,
         isAnchor,
         isHighRisk,
         profile,
@@ -209,9 +211,18 @@ export function buildUniverse3DSceneData(
     investigation.evidence.hops.forEach((hop, idx) => {
       const fromPos = posMap.get(hop.from_account_id) ?? { x: -10, y: 0, z: 0 };
       const toPos = posMap.get(hop.to_account_id) ?? { x: 10, y: 0, z: 0 };
-      const midX = (fromPos.x + toPos.x) / 2;
-      const midY = (fromPos.y + toPos.y) / 2 + 4.2 + (idx % 3) * 1.4;
-      const midZ = (fromPos.z + toPos.z) / 2 + (idx % 2 === 0 ? 2.6 : -2.6);
+
+      // Sleek, taut geometric arc with minimal vertical lift and subtle outward bow
+      const rawMidX = (fromPos.x + toPos.x) / 2;
+      const rawMidY = (fromPos.y + toPos.y) / 2;
+      const rawMidZ = (fromPos.z + toPos.z) / 2;
+
+      const radialLen = Math.hypot(rawMidX, rawMidZ);
+      const outwardPush = radialLen > 0.5 ? 1.06 : 1.0;
+      const midX = rawMidX * outwardPush;
+      const midY = rawMidY + 0.55 + (idx % 2) * 0.22;
+      const midZ =
+        rawMidZ * outwardPush + (radialLen <= 0.5 ? (idx % 2 === 0 ? 0.8 : -0.8) : 0);
 
       ringEdges.push({
         id: `${hop.transaction_id}:${idx}`,
@@ -243,9 +254,9 @@ export function buildUniverse3DSceneData(
         let ownerPos = uboAdded.get(ownerKey);
         if (!ownerPos) {
           ownerPos = {
-            x: accPos.x * 0.45,
-            y: 17 + (uboAdded.size % 2) * 3.5,
-            z: accPos.z * 0.45,
+            x: accPos.x * 0.48,
+            y: 12.2 + (uboAdded.size % 2) * 1.8,
+            z: accPos.z * 0.48,
           };
           uboAdded.set(ownerKey, ownerPos);
           overlayNodes.push({
@@ -260,7 +271,7 @@ export function buildUniverse3DSceneData(
             ringPosition: ownerPos,
             colorHex: isUbo ? 0xa855f7 : 0xf43f5e,
             badgeColor: isUbo ? '#c084fc' : '#fb7185',
-            radius: isUbo ? 2.1 : 1.6,
+            radius: isUbo ? 1.04 : 0.8,
             isAnchor: false,
             isHighRisk: profile.is_pep_or_sanctioned,
           });
@@ -279,11 +290,11 @@ export function buildUniverse3DSceneData(
         let bankPos = bankAdded.get(profile.bank_id);
         if (!bankPos) {
           bankPos = {
-            x: accPos.x * 1.12,
-            y: -14 - (bankAdded.size % 2) * 2.5,
-            z: accPos.z * 1.12,
+            x: accPos.x * 1.08,
+            y: -10.5 - (bankAdded.size % 2) * 1.6,
+            z: accPos.z * 1.08,
           };
-          bankAdded.set(profile.bank_id, bankPos);
+          bankAdded.set(bankPos ? profile.bank_id : profile.bank_id, bankPos);
           overlayNodes.push({
             id: `bank:${profile.bank_id}`,
             kind: 'bank',
@@ -294,7 +305,7 @@ export function buildUniverse3DSceneData(
             ringPosition: bankPos,
             colorHex: 0x0ea5e9,
             badgeColor: '#38bdf8',
-            radius: 1.45,
+            radius: 0.76,
             isAnchor: false,
             isHighRisk: false,
           });
@@ -338,10 +349,10 @@ export function buildUniverse3DSceneData(
     const theta = (2 * Math.PI * i) / goldenRatio;
     const phi = Math.acos(1 - (2 * (i + 0.5)) / Math.max(nodeCount, 1));
     const jitter = deterministicUnit(acc.account_id, 1);
-    const radius = 34 + jitter * 72;
+    const radius = 32 + jitter * 68;
 
     const x = radius * Math.sin(phi) * Math.cos(theta);
-    const y = radius * Math.cos(phi) * 0.65;
+    const y = radius * Math.cos(phi) * 0.6;
     const z = radius * Math.sin(phi) * Math.sin(theta);
 
     bgPosMap.set(acc.account_id, { x, y, z });
