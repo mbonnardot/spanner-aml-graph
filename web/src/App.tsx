@@ -1,21 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  InlineLoading,
-  InlineNotification,
-  Toggle,
-} from '@carbon/react';
-import {
   Background,
+  BackgroundVariant,
   Controls,
-  MiniMap,
-  Panel,
   ReactFlow,
 } from '@xyflow/react';
 import type { NodeMouseHandler } from '@xyflow/react';
 import { AccountNode, BankNode, EntityNode } from './components/CarbonNodes';
 import { CaseDossierSidebar } from './components/CaseDossierSidebar';
 import { DemoStoryBanner } from './components/DemoStoryBanner';
-import { HopTimelineTable } from './components/HopTimelineTable';
 import { InvestigationSidebar } from './components/InvestigationSidebar';
 import { TransferHopEdge } from './components/TransferHopEdge';
 import { WorkbenchHeader } from './components/WorkbenchHeader';
@@ -58,9 +51,13 @@ export function App() {
   const [isLoadingGraph, setIsLoadingGraph] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  /* Progressive disclosure: start with clean money-flow path; toggle UBOs/Banks via M3 Filter Chips */
   const [showOwnershipOverlay, setShowOwnershipOverlay] =
-    useState<boolean>(true);
+    useState<boolean>(false);
   const [showBankOverlay, setShowBankOverlay] = useState<boolean>(false);
+  const [showGqlModal, setShowGqlModal] = useState<boolean>(false);
+  const [simulatorOpen, setSimulatorOpen] = useState<boolean>(false);
+
   const [highlightedHopTxId, setHighlightedHopTxId] = useState<string | null>(
     null
   );
@@ -336,52 +333,109 @@ export function App() {
   }, [investigation]);
 
   return (
-    <div className="cds--g100">
-      <WorkbenchHeader health={health} investigation={investigation} />
+    <div>
+      <WorkbenchHeader
+        health={health}
+        lastLatencyMs={investigation?.evidence.query_latency_ms ?? null}
+        onOpenSimulator={() => setSimulatorOpen(true)}
+      />
 
-      <main className="workbench-shell">
+      <div className="m3-workspace">
         <InvestigationSidebar
           cases={cases}
           selectedCaseId={selectedCaseId}
-          isLoadingGraph={isLoadingGraph}
+          onSelectCase={handleSelectCatalogCase}
+          simulatorOpen={simulatorOpen}
+          onCloseSimulator={() => setSimulatorOpen(false)}
           customTypology={customTypology}
+          onChangeCustomTypology={setCustomTypology}
           customAnchorId={customAnchorId}
+          onChangeCustomAnchorId={setCustomAnchorId}
           customMinAmount={customMinAmount}
+          onChangeCustomMinAmount={setCustomMinAmount}
+          onRunCustomQuery={handleRunCustomQuery}
+          isLoadingGraph={isLoadingGraph}
           interceptSender={interceptSender}
+          onChangeInterceptSender={setInterceptSender}
           interceptReceiver={interceptReceiver}
+          onChangeInterceptReceiver={setInterceptReceiver}
           interceptAmount={interceptAmount}
+          onChangeInterceptAmount={setInterceptAmount}
+          onSimulateIntercept={handleSimulatePaymentIntercept}
           isIntercepting={isIntercepting}
           interceptResult={interceptResult}
-          onSelectCatalogCase={handleSelectCatalogCase}
-          onCustomTypologyChange={setCustomTypology}
-          onCustomAnchorChange={setCustomAnchorId}
-          onCustomMinAmountChange={setCustomMinAmount}
-          onRunCustomQuery={handleRunCustomQuery}
-          onInterceptSenderChange={setInterceptSender}
-          onInterceptReceiverChange={setInterceptReceiver}
-          onInterceptAmountChange={setInterceptAmount}
-          onSimulateIntercept={handleSimulatePaymentIntercept}
         />
 
-        <section className="center-stage">
+        <main className="m3-stage">
+          <DemoStoryBanner
+            guide={investigation?.demo_guide}
+            investigation={investigation}
+            totalVolumeUsd={totalVolumeUsd}
+            showGqlModal={showGqlModal}
+            onToggleGqlModal={() => setShowGqlModal((v) => !v)}
+          />
+
           {errorMessage && (
-            <InlineNotification
-              kind="error"
-              title="Spanner Graph Query Error"
-              subtitle={errorMessage}
-              onCloseButtonClick={() => setErrorMessage(null)}
-              lowContrast
-            />
+            <div
+              className="m3-card m3-card--tonal-error"
+              style={{ margin: '8px 16px 0', padding: '8px 14px', fontSize: '0.8rem' }}
+            >
+              {errorMessage}
+            </div>
           )}
 
-          <DemoStoryBanner investigation={investigation} />
+          <div className="m3-canvas-wrap">
+            <div className="m3-canvas-controls-bar">
+              <button
+                type="button"
+                className={`m3-filter-chip ${showOwnershipOverlay ? 'm3-filter-chip--active' : ''}`}
+                onClick={() => setShowOwnershipOverlay((v) => !v)}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                  {showOwnershipOverlay ? 'check' : 'person_search'}
+                </span>
+                Reveal UBO & Entities
+              </button>
 
-          <div className="graph-canvas-wrapper">
-            {isLoadingGraph && (
-              <div className="graph-loading-badge">
-                <InlineLoading description="Executing ISO GQL traversal on Cloud Spanner..." />
-              </div>
-            )}
+              <button
+                type="button"
+                className={`m3-filter-chip ${showBankOverlay ? 'm3-filter-chip--active' : ''}`}
+                onClick={() => setShowBankOverlay((v) => !v)}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                  {showBankOverlay ? 'check' : 'account_balance'}
+                </span>
+                Reveal Banks
+              </button>
+
+              <button
+                type="button"
+                className={`m3-filter-chip ${showGqlModal ? 'm3-filter-chip--active' : ''}`}
+                onClick={() => setShowGqlModal(true)}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                  code
+                </span>
+                View ISO GQL Query
+              </button>
+            </div>
+
+            <div className="m3-canvas-legend">
+              <span>
+                <span className="m3-legend-dot" style={{ background: '#0b57d0' }} />
+                Anchor / Money Flow
+              </span>
+              <span>
+                <span className="m3-legend-dot" style={{ background: '#b3261e' }} />
+                High-Risk / PEP Linked
+              </span>
+              {showOwnershipOverlay && (
+                <span>
+                  <span className="m3-legend-dot" style={{ background: '#7c3aed' }} />
+                  Beneficial Owner (UBO)
+                </span>
+              )}
+            </div>
 
             <ReactFlow
               nodes={nodes}
@@ -390,70 +444,36 @@ export function App() {
               edgeTypes={EDGE_TYPES}
               onNodeClick={handleNodeClick}
               fitView
-              fitViewOptions={{ padding: 0.22 }}
-              minZoom={0.2}
-              maxZoom={2}
+              fitViewOptions={{ padding: 0.24 }}
+              minZoom={0.25}
+              maxZoom={1.75}
               proOptions={{ hideAttribution: true }}
             >
-              <Background color="#333333" gap={22} size={1} />
-              <Controls />
-              <MiniMap
-                nodeColor={(n) =>
-                  n.type === 'entityNode'
-                    ? '#a56eff'
-                    : n.type === 'bankNode'
-                    ? '#6f6f6f'
-                    : '#4589ff'
-                }
-                maskColor="rgba(22, 22, 22, 0.75)"
-                style={{
-                  backgroundColor: '#1c1c1c',
-                  border: '1px solid #393939',
-                }}
+              <Background
+                variant={BackgroundVariant.Dots}
+                gap={22}
+                size={1.2}
+                color="#cbd5e1"
               />
-              <Panel position="top-right" className="graph-overlay-panel">
-                <Toggle
-                  id="toggle-ownership"
-                  size="sm"
-                  labelText="Entity & UBO Overlay"
-                  labelA="Off"
-                  labelB="On"
-                  toggled={showOwnershipOverlay}
-                  onToggle={(checked) => setShowOwnershipOverlay(checked)}
-                />
-                <Toggle
-                  id="toggle-banks"
-                  size="sm"
-                  labelText="Bank Nodes"
-                  labelA="Off"
-                  labelB="On"
-                  toggled={showBankOverlay}
-                  onToggle={(checked) => setShowBankOverlay(checked)}
-                />
-              </Panel>
+              <Controls showInteractive={false} />
             </ReactFlow>
           </div>
-
-          <HopTimelineTable
-            hops={investigation?.evidence.hops ?? []}
-            hopCount={investigation?.evidence.hop_count ?? 0}
-            totalVolumeUsd={totalVolumeUsd}
-            highlightedHopTxId={highlightedHopTxId}
-            onHoverHop={setHighlightedHopTxId}
-          />
-        </section>
+        </main>
 
         <CaseDossierSidebar
           investigation={investigation}
           selectedAccountProfile={selectedAccountProfile}
+          highlightedHopTxId={highlightedHopTxId}
+          onHoverHop={setHighlightedHopTxId}
+          onSelectAccountId={setSelectedNodeId}
+          onDraftSingleTicketSar={handleDraftSingleTicketSar}
           isGeneratingSar={isGeneratingSar}
           activeAlert={activeAlert}
           savedAlerts={savedAlerts}
-          onDraftSingleTicketSar={handleDraftSingleTicketSar}
-          onSelectAlert={setActiveAlert}
         />
-      </main>
+      </div>
     </div>
   );
 }
+
 export default App;

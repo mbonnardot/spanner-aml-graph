@@ -1,13 +1,5 @@
+import type { Node, NodeProps } from '@xyflow/react';
 import { Handle, Position } from '@xyflow/react';
-import type { NodeProps, Node } from '@xyflow/react';
-import { Tag } from '@carbon/react';
-import {
-  Locked,
-  WarningAltFilled,
-  UserMultiple,
-  Building,
-  Finance,
-} from '@carbon/icons-react';
 import type {
   AccountNodeData,
   BankNodeData,
@@ -16,198 +8,178 @@ import type {
 
 export function AccountNode({ data }: NodeProps<Node<AccountNodeData>>) {
   const profile = data.profile;
-  const riskTier = profile?.kyc_risk_tier ?? 'MEDIUM';
   const isHighRisk =
-    riskTier === 'HIGH' ||
-    riskTier === 'CRITICAL' ||
+    Boolean(profile?.is_flagged) ||
     Boolean(profile?.is_pep_or_sanctioned) ||
-    Boolean(profile?.ubo_entity_id);
+    profile?.kyc_risk_tier === 'HIGH';
 
-  const borderColor = data.isHighlighted
-    ? '#ff832b'
-    : data.isAnchor
-    ? '#da1e28'
-    : isHighRisk
-    ? '#ff832b'
-    : '#4589ff';
+  const classNames = [
+    'm3-node-account',
+    data.isAnchor ? 'm3-node-account--origin' : '',
+    isHighRisk ? 'm3-node-account--high-risk' : '',
+    data.isHighlighted ? 'm3-node-account--selected' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
-    <div
-      className="aml-account-node"
-      style={{
-        border: `1.5px solid ${borderColor}`,
-        borderLeft: `5px solid ${borderColor}`,
-        boxShadow: data.isHighlighted
-          ? '0 0 0 2px rgba(255, 131, 43, 0.45), 0 8px 20px rgba(0, 0, 0, 0.65)'
-          : '0 4px 12px rgba(0, 0, 0, 0.5)',
-      }}
-    >
+    <div className={classNames}>
       <Handle
         type="target"
         position={Position.Left}
-        style={{ background: '#4589ff', width: 8, height: 8 }}
+        style={{ background: '#0b57d0', width: 8, height: 8, border: '2px solid #ffffff' }}
       />
-      <div className="aml-account-node__header">
-        <span className="aml-account-node__id">{data.accountId}</span>
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          {data.isAnchor && (
-            <Tag type="red" size="sm">
-              ORIGIN / HUB
-            </Tag>
-          )}
-          {profile?.is_flagged && (
-            <Tag type="purple" size="sm" renderIcon={Locked}>
-              FLAGGED
-            </Tag>
-          )}
-        </div>
-      </div>
-
-      <div className="aml-account-node__holder">
-        {profile?.entity_name ?? 'Account Holder'} (
-        {profile?.entity_jurisdiction ?? 'US'})
-      </div>
-
-      <div className="aml-account-node__flows">
-        <span style={{ color: '#ff832b' }}>
-          OUT: $
-          {data.totalOutUsd.toLocaleString(undefined, {
-            maximumFractionDigits: 0,
-          })}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <span
+          className="mono-num"
+          style={{
+            fontSize: '0.7rem',
+            fontWeight: 600,
+            color: '#0b57d0',
+            background: '#e8f0fe',
+            padding: '2px 7px',
+            borderRadius: 9999,
+          }}
+        >
+          #{data.accountId}
         </span>
-        <span style={{ color: '#42be65' }}>
-          IN: $
-          {data.totalInUsd.toLocaleString(undefined, {
-            maximumFractionDigits: 0,
-          })}
-        </span>
-      </div>
-
-      {isHighRisk && (
-        <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
-          {(profile?.is_pep_or_sanctioned || profile?.ubo_entity_id) && (
-            <Tag type="magenta" size="sm" renderIcon={WarningAltFilled}>
-              PEP / UBO
-            </Tag>
-          )}
-          <Tag
-            type={
-              riskTier === 'HIGH' || riskTier === 'CRITICAL'
-                ? 'red'
-                : 'warm-gray'
-            }
-            size="sm"
+        {isHighRisk ? (
+          <span
+            style={{
+              fontSize: '0.64rem',
+              fontWeight: 700,
+              color: '#b3261e',
+              background: '#f9dedc',
+              padding: '2px 7px',
+              borderRadius: 9999,
+            }}
           >
-            KYC {riskTier}
-          </Tag>
-        </div>
-      )}
+            {profile?.is_pep_or_sanctioned ? 'PEP / SANCTIONS' : 'HIGH RISK'}
+          </span>
+        ) : data.isAnchor ? (
+          <span
+            style={{
+              fontSize: '0.64rem',
+              fontWeight: 700,
+              color: '#041e49',
+              background: '#d3e3fd',
+              padding: '2px 7px',
+              borderRadius: 9999,
+            }}
+          >
+            ANCHOR
+          </span>
+        ) : (
+          <span style={{ fontSize: '0.68rem', color: '#444746', fontWeight: 500 }}>
+            {profile?.entity_jurisdiction ?? 'USD'}
+          </span>
+        )}
+      </div>
+
+      <div
+        style={{
+          fontFamily: 'var(--md-sys-typescale-display-font)',
+          fontSize: '0.83rem',
+          fontWeight: 700,
+          color: '#1f1f1f',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+        title={profile?.entity_name ?? data.accountId}
+      >
+        {profile?.entity_name ?? `Account ${data.accountId}`}
+      </div>
+
+      <div
+        style={{
+          fontSize: '0.7rem',
+          color: '#444746',
+          marginTop: 4,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>
+          {profile?.bank_name ?? 'Account'}
+        </span>
+        <span style={{ color: '#0b57d0', fontWeight: 500, fontSize: '0.66rem' }}>Inspect →</span>
+      </div>
 
       <Handle
         type="source"
         position={Position.Right}
-        style={{ background: '#ff832b', width: 8, height: 8 }}
+        style={{ background: '#0b57d0', width: 8, height: 8, border: '2px solid #ffffff' }}
       />
     </div>
   );
 }
 
 export function EntityNode({ data }: NodeProps<Node<EntityNodeData>>) {
-  const borderColor = data.isUbo ? '#ff832b' : '#a56eff';
+  const isHighRisk = data.isPep || data.isUbo || data.kycRiskTier === 'HIGH';
+  const classNames = [
+    'm3-node-entity',
+    isHighRisk ? 'm3-node-entity--high-risk' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <div
-      className="aml-entity-node"
-      style={{
-        border: `1px dashed ${borderColor}`,
-        borderTop: `3px solid ${borderColor}`,
-      }}
-    >
-      <Handle
-        type="target"
-        position={Position.Top}
-        style={{ background: borderColor }}
-      />
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          marginBottom: 4,
-        }}
-      >
-        {data.isUbo ? <UserMultiple size={14} /> : <Building size={14} />}
+    <div className={classNames}>
+      <Handle type="target" position={Position.Top} style={{ background: '#7c3aed', width: 7, height: 7 }} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
         <span
           style={{
-            fontSize: 11,
-            fontWeight: 600,
-            color: data.isUbo ? '#ffb784' : '#d4bbff',
+            fontSize: '0.63rem',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            color: isHighRisk ? '#b3261e' : '#5b21b6',
           }}
         >
-          {data.isUbo ? 'UBO CONTROLLER' : 'LEGAL ENTITY'}
+          {data.isUbo ? 'UBO Controller' : data.entityType}
         </span>
+        <span style={{ fontSize: '0.65rem', color: '#444746', fontWeight: 600 }}>{data.jurisdiction}</span>
       </div>
       <div
         style={{
-          fontSize: 12,
-          fontWeight: 600,
+          fontFamily: 'var(--md-sys-typescale-display-font)',
+          fontSize: '0.78rem',
+          fontWeight: 700,
+          color: '#1f1f1f',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
         }}
+        title={data.entityName}
       >
         {data.entityName}
       </div>
-      <div
-        className="tabular-nums"
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginTop: 4,
-          fontSize: 10,
-          color: '#a8a8a8',
-        }}
-      >
-        <span>{data.entityId}</span>
-        <span>{data.jurisdiction}</span>
-      </div>
-      {data.isPep && (
-        <div style={{ marginTop: 4 }}>
-          <Tag type="red" size="sm">
-            PEP / SANCTIONED
-          </Tag>
-        </div>
-      )}
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        style={{ background: borderColor }}
-      />
+      <Handle type="source" position={Position.Bottom} style={{ background: '#7c3aed', width: 7, height: 7 }} />
     </div>
   );
 }
 
 export function BankNode({ data }: NodeProps<Node<BankNodeData>>) {
   return (
-    <div className="aml-bank-node">
-      <Handle
-        type="target"
-        position={Position.Top}
-        style={{ background: '#6f6f6f' }}
-      />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
-        <Finance size={14} />
-        <span style={{ fontWeight: 600 }}>{data.bankName}</span>
+    <div className="m3-node-bank">
+      <Handle type="target" position={Position.Top} style={{ background: '#64748b', width: 6, height: 6 }} />
+      <div style={{ fontSize: '0.62rem', fontWeight: 700, color: '#444746', textTransform: 'uppercase' }}>
+        Institution · {data.jurisdiction}
       </div>
       <div
-        className="tabular-nums"
         style={{
-          fontSize: 10,
-          color: '#8d8d8d',
+          fontSize: '0.76rem',
+          fontWeight: 600,
+          color: '#1f1f1f',
           marginTop: 2,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
         }}
+        title={data.bankName}
       >
-        {data.bankId} • {data.jurisdiction}
+        {data.bankName}
       </div>
     </div>
   );

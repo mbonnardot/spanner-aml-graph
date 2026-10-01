@@ -1,6 +1,5 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Theme } from '@carbon/react';
 import './styles/index.scss';
 import { App } from './App';
 
@@ -11,8 +10,6 @@ if (!rootEl) {
 
 createRoot(rootEl).render(
   <StrictMode>
-    <Theme theme="g100">
-      <App />
-    </Theme>
+    <App />
   </StrictMode>
 );

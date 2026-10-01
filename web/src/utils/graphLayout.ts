@@ -93,7 +93,6 @@ export function buildReactFlowGraph(
     };
   });
 
-  // Group hops by directed pair so parallel edges render cleanly
   const pairHopsMap = new Map<string, TransferHop[]>();
   for (const hop of evidence.hops) {
     const key = `${hop.from_account_id}__${hop.to_account_id}`;
@@ -113,9 +112,13 @@ export function buildReactFlowGraph(
       target: primaryHop.to_account_id,
       type: 'transferHopEdge',
       animated: true,
+      style: {
+        stroke: isHighlighted ? '#e37400' : '#0b57d0',
+        strokeWidth: isHighlighted ? 3.2 : 2.2,
+      },
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: isHighlighted ? '#ff832b' : '#4589ff',
+        color: isHighlighted ? '#e37400' : '#0b57d0',
         width: 18,
         height: 18,
       },
@@ -127,7 +130,6 @@ export function buildReactFlowGraph(
     });
   }
 
-  // Position account nodes: Circular Ring geometry for cyclic typologies, Dagre LR for flow typologies
   const isCyclic = CYCLIC_TYPOLOGIES.has(evidence.typology);
   const positionedAccountNodes = isCyclic
     ? layoutCircularRing(accountNodes)
@@ -148,8 +150,8 @@ export function buildReactFlowGraph(
       const entityNodeId = `entity:${profile.entity_id}`;
       if (!addedEntities.has(entityNodeId)) {
         const pos = {
-          x: accNode.position.x + (idx % 2 === 0 ? -35 : 35),
-          y: accNode.position.y - 145,
+          x: accNode.position.x + (idx % 2 === 0 ? -30 : 30),
+          y: accNode.position.y - 135,
         };
         addedEntities.set(entityNodeId, pos);
         const entityData: EntityNodeData = {
@@ -175,9 +177,9 @@ export function buildReactFlowGraph(
         source: entityNodeId,
         target: accNode.id,
         label: 'OWNS',
-        style: { stroke: '#a56eff', strokeDasharray: '5 4', strokeWidth: 1.5 },
-        labelStyle: { fill: '#d4bbff', fontSize: 10, fontFamily: 'IBM Plex Mono' },
-        labelBgStyle: { fill: '#161616', fillOpacity: 0.85 },
+        style: { stroke: '#7c3aed', strokeDasharray: '5 4', strokeWidth: 1.6 },
+        labelStyle: { fill: '#5b21b6', fontSize: 10, fontFamily: 'Roboto Mono, monospace', fontWeight: 600 },
+        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.92 },
       });
 
       if (profile.ubo_entity_id) {
@@ -186,7 +188,7 @@ export function buildReactFlowGraph(
         if (!addedUbos.has(uboNodeId)) {
           const uboPos = {
             x: entityPos.x,
-            y: entityPos.y - 130,
+            y: entityPos.y - 125,
           };
           addedUbos.set(uboNodeId, uboPos);
           const uboData: EntityNodeData = {
@@ -213,9 +215,9 @@ export function buildReactFlowGraph(
             source: uboNodeId,
             target: entityNodeId,
             label: 'CONTROLS',
-            style: { stroke: '#ff832b', strokeDasharray: '3 3', strokeWidth: 1.8 },
-            labelStyle: { fill: '#ffb784', fontSize: 10, fontFamily: 'IBM Plex Mono' },
-            labelBgStyle: { fill: '#161616', fillOpacity: 0.85 },
+            style: { stroke: '#b3261e', strokeDasharray: '4 3', strokeWidth: 1.8 },
+            labelStyle: { fill: '#b3261e', fontSize: 10, fontFamily: 'Roboto Mono, monospace', fontWeight: 700 },
+            labelBgStyle: { fill: '#fff8f7', fillOpacity: 0.95 },
           });
         }
       }
@@ -242,8 +244,8 @@ export function buildReactFlowGraph(
           id: bankNodeId,
           type: 'bankNode',
           position: {
-            x: accNode.position.x + 20,
-            y: accNode.position.y + 150,
+            x: accNode.position.x + 15,
+            y: accNode.position.y + 135,
           },
           data: bankData,
         });
@@ -253,9 +255,9 @@ export function buildReactFlowGraph(
         source: accNode.id,
         target: bankNodeId,
         label: 'HELD_AT',
-        style: { stroke: '#6f6f6f', strokeDasharray: '4 4', strokeWidth: 1.2 },
-        labelStyle: { fill: '#a8a8a8', fontSize: 9, fontFamily: 'IBM Plex Mono' },
-        labelBgStyle: { fill: '#161616', fillOpacity: 0.85 },
+        style: { stroke: '#64748b', strokeDasharray: '4 4', strokeWidth: 1.3 },
+        labelStyle: { fill: '#475569', fontSize: 9, fontFamily: 'Roboto Mono, monospace', fontWeight: 600 },
+        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.92 },
       });
     });
   }
@@ -270,17 +272,17 @@ function layoutCircularRing(
   nodes: readonly Node<AccountNodeData>[]
 ): Node<AccountNodeData>[] {
   const count = nodes.length;
-  const radius = Math.max(210, count * 44);
+  const radius = Math.max(205, count * 44);
   const centerX = 460;
-  const centerY = 320;
+  const centerY = 300;
 
   return nodes.map((node, index) => {
     const angle = (2 * Math.PI * index) / Math.max(1, count) - Math.PI / 2;
     return {
       ...node,
       position: {
-        x: Math.round(centerX + radius * Math.cos(angle) - 120),
-        y: Math.round(centerY + radius * Math.sin(angle) - 55),
+        x: Math.round(centerX + radius * Math.cos(angle) - 105),
+        y: Math.round(centerY + radius * Math.sin(angle) - 45),
       },
     };
   });
@@ -294,14 +296,14 @@ function layoutDagreLr(
   g.setDefaultEdgeLabel(() => ({}));
   g.setGraph({
     rankdir: 'LR',
-    nodesep: 65,
-    ranksep: 190,
-    marginx: 50,
-    marginy: 50,
+    nodesep: 68,
+    ranksep: 175,
+    marginx: 48,
+    marginy: 48,
   });
 
-  const nodeWidth = 240;
-  const nodeHeight = 112;
+  const nodeWidth = 215;
+  const nodeHeight = 92;
 
   for (const node of nodes) {
     g.setNode(node.id, { width: nodeWidth, height: nodeHeight });

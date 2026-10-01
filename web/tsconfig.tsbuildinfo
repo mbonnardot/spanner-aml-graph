@@ -1,1 +1,1 @@
-{"root":["./src/App.tsx","./src/main.tsx","./src/components/CarbonNodes.tsx","./src/components/TransferHopEdge.tsx","./src/types/aml.ts","./src/utils/graphLayout.ts"],"version":"5.6.3"}
+{"root":["./src/App.tsx","./src/main.tsx","./src/components/CarbonNodes.tsx","./src/components/CaseDossierSidebar.tsx","./src/components/DemoStoryBanner.tsx","./src/components/InvestigationSidebar.tsx","./src/components/TransferHopEdge.tsx","./src/components/WorkbenchHeader.tsx","./src/types/aml.ts","./src/utils/graphLayout.ts"],"version":"5.6.3"}
