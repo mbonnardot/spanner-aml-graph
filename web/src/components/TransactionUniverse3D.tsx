@@ -80,6 +80,10 @@ export function TransactionUniverse3D({
 }: TransactionUniverse3DProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const labelElsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const wirePillRef = useRef<HTMLDivElement | null>(null);
+  const uboPillRef = useRef<HTMLDivElement | null>(null);
+  const shieldPillRef = useRef<HTMLDivElement | null>(null);
+  const patternMorphRef = useRef<number>(1);
   const zoomControlRef = useRef<{
     zoomBy: (delta: number) => void;
     resetView: () => void;
@@ -107,6 +111,8 @@ export function TransactionUniverse3D({
   selectedNodeIdRef.current = selectedNodeId;
   const onSelectNodeIdRef = useRef(onSelectNodeId);
   onSelectNodeIdRef.current = onSelectNodeId;
+  const interceptResultRef = useRef(interceptResult);
+  interceptResultRef.current = interceptResult;
 
   // Three.js scene graph handles
   const cloudGroupRef = useRef<THREE.Group | null>(null);
@@ -306,12 +312,22 @@ export function TransactionUniverse3D({
       const curChapter = activeChapterRef.current;
       const curHopIdx = activeHopIndexRef.current;
       const curData = sceneDataRef.current;
+      const isWireBlocked = Boolean(
+        interceptResultRef.current &&
+          (interceptResultRef.current.decision === 'HELD' ||
+            interceptResultRef.current.decision === 'BLOCK_HOLD_COMPLIANCE')
+      );
+
+      // Smooth 3D morph when switching among the 8 laundering patterns
+      patternMorphRef.current += (1 - patternMorphRef.current) * 0.095;
+      const morphT = patternMorphRef.current;
 
       // 1. Compute continuous isolation factor (0 = disguised in cloud, 1 = isolated ring)
       const targetIsolate = isFreeOrbit
         ? 1
         : smoothstep(0.02, 0.19, rawScroll);
       dampedIsolate += (targetIsolate - dampedIsolate) * 0.085;
+      const effectiveIsolate = dampedIsolate * (0.35 + 0.65 * morphT);
 
       // Subtle radar pulse on the floor
       const pulsePhase = (clockTime * 0.42) % 1;
@@ -333,68 +349,96 @@ export function TransactionUniverse3D({
       nodeBundlesRef.current.forEach((bundle, idx) => {
         const { cloudPosition, ringPosition } = bundle.node;
         const driftY =
-          Math.sin(clockTime * 1.4 + idx * 0.9) * 0.16 * dampedIsolate;
+          Math.sin(clockTime * 1.4 + idx * 0.9) * 0.16 * effectiveIsolate;
 
         const x =
           cloudPosition.x +
-          (ringPosition.x - cloudPosition.x) * dampedIsolate;
+          (ringPosition.x - cloudPosition.x) * effectiveIsolate;
         const y =
           cloudPosition.y +
-          (ringPosition.y - cloudPosition.y) * dampedIsolate +
+          (ringPosition.y - cloudPosition.y) * effectiveIsolate +
           driftY;
         const z =
           cloudPosition.z +
-          (ringPosition.z - cloudPosition.z) * dampedIsolate;
+          (ringPosition.z - cloudPosition.z) * effectiveIsolate;
 
         bundle.group.position.set(x, y, z);
-        const nodeScale = 0.68 + dampedIsolate * 0.32;
+        const nodeScale = (0.68 + effectiveIsolate * 0.32) * (0.7 + 0.3 * morphT);
         bundle.group.scale.setScalar(nodeScale);
         (bundle.haloSprite.material as THREE.SpriteMaterial).opacity =
-          0.22 + dampedIsolate * 0.58;
+          0.22 + effectiveIsolate * 0.58;
       });
 
       // 4. Reveal Sleek 3D Transfer Tubes, Arrowheads & Pulses
-      const tubeReveal = smoothstep(0.4, 0.95, dampedIsolate);
+      const tubeReveal = smoothstep(0.4, 0.95, effectiveIsolate);
+      const totalEdges = edgeMeshesRef.current.length;
+
       edgeMeshesRef.current.forEach((mesh, idx) => {
         const mat = mesh.material as THREE.MeshStandardMaterial;
         const arrowMesh = arrowMeshesRef.current[idx];
         const arrowMat = arrowMesh
           ? (arrowMesh.material as THREE.MeshBasicMaterial)
           : null;
+        const isLastEdge = idx === totalEdges - 1;
 
         mesh.visible = tubeReveal > 0.02;
         if (arrowMesh) {
           arrowMesh.visible = tubeReveal > 0.05;
         }
 
-        if (curChapter === 3) {
+        if (isWireBlocked && isLastEdge) {
+          // Blocked closing wire turns crimson red
+          mat.color.setHex(0xf43f5e);
+          mat.emissive.setHex(0xf43f5e);
+          mat.emissiveIntensity = 1.15;
+          mat.opacity = tubeReveal * 0.96;
+          if (arrowMat) {
+            arrowMat.color.setHex(0xf43f5e);
+            arrowMat.opacity = tubeReveal;
+          }
+        } else if (curChapter === 3) {
           if (idx === curHopIdx) {
-            mat.color.setHex(0x38bdf8);
-            mat.emissive.setHex(0x38bdf8);
-            mat.emissiveIntensity = 1.15;
-            mat.opacity = tubeReveal * 0.96;
+            // Active hop blazes cyan (or emerald green on the final Clean Cash-Out hop!)
+            const activeColor = isLastEdge ? 0x10b981 : 0x38bdf8;
+            mat.color.setHex(activeColor);
+            mat.emissive.setHex(activeColor);
+            mat.emissiveIntensity = 1.2;
+            mat.opacity = tubeReveal * 0.98;
             if (arrowMat) {
-              arrowMat.color.setHex(0x38bdf8);
+              arrowMat.color.setHex(activeColor);
               arrowMat.opacity = tubeReveal;
             }
+          } else if (idx < curHopIdx) {
+            // Completed hops stay illuminated in indigo so the laundering trail accumulates!
+            mat.color.setHex(0x6366f1);
+            mat.emissive.setHex(0x4f46e5);
+            mat.emissiveIntensity = 0.55;
+            mat.opacity = tubeReveal * 0.72;
+            if (arrowMat) {
+              arrowMat.color.setHex(0x818cf8);
+              arrowMat.opacity = tubeReveal * 0.78;
+            }
           } else {
+            // Future hops remain dim until reached
             mat.color.setHex(0x334155);
             mat.emissive.setHex(0x1e293b);
-            mat.emissiveIntensity = 0.14;
-            mat.opacity = tubeReveal * 0.26;
+            mat.emissiveIntensity = 0.12;
+            mat.opacity = tubeReveal * 0.2;
             if (arrowMat) {
               arrowMat.color.setHex(0x475569);
-              arrowMat.opacity = tubeReveal * 0.32;
+              arrowMat.opacity = tubeReveal * 0.25;
             }
           }
         } else {
-          const baseColor = idx === 0 ? 0x38bdf8 : 0x6366f1;
+          const baseColor = idx === 0 ? 0x38bdf8 : isLastEdge ? 0x10b981 : 0x6366f1;
           mat.color.setHex(baseColor);
           mat.emissive.setHex(baseColor);
-          mat.emissiveIntensity = 0.6;
-          mat.opacity = tubeReveal * 0.78;
+          mat.emissiveIntensity = 0.62;
+          mat.opacity = tubeReveal * 0.8;
           if (arrowMat) {
-            arrowMat.color.setHex(idx === 0 ? 0x38bdf8 : 0x818cf8);
+            arrowMat.color.setHex(
+              idx === 0 ? 0x38bdf8 : isLastEdge ? 0x10b981 : 0x818cf8
+            );
             arrowMat.opacity = tubeReveal * 0.88;
           }
         }
@@ -404,12 +448,23 @@ export function TransactionUniverse3D({
         p.mesh.visible = tubeReveal > 0.2;
         p.glowSprite.visible = tubeReveal > 0.2;
         const isActiveHop = curChapter === 3 && p.hopIdx === curHopIdx;
-        p.offset =
-          (p.offset + (isActiveHop ? p.speed * 1.85 : p.speed)) % 1;
+        const isFutureHop = curChapter === 3 && p.hopIdx > curHopIdx;
+
+        // Freeze pulse motion when wire is intercepted in Act 5
+        if (!isWireBlocked) {
+          const stepSpeed = isActiveHop
+            ? p.speed * 1.85
+            : isFutureHop
+              ? p.speed * 0.4
+              : p.speed;
+          p.offset = (p.offset + stepSpeed) % 1;
+        }
+
         const pt = p.curve.getPointAt(p.offset);
         p.mesh.position.copy(pt);
         p.glowSprite.position.copy(pt);
-        const s = (isActiveHop ? 1.35 : 0.85) * tubeReveal;
+        const s =
+          (isActiveHop ? 1.4 : isFutureHop ? 0.55 : 0.85) * tubeReveal;
         p.mesh.scale.setScalar(s);
         p.glowSprite.scale.setScalar(s * 2.35);
       });
@@ -429,8 +484,6 @@ export function TransactionUniverse3D({
       }
 
       // 6. Camera Choreography & Right-Side Viewport Centering
-      // Use camera.setViewOffset so the 3D ring origin (0,0,0) is ALWAYS centered on the right half
-      // of the screen (~68% from left edge) regardless of 360-degree camera orbit!
       const w = mountRef.current?.clientWidth || window.innerWidth;
       const h = mountRef.current?.clientHeight || window.innerHeight;
       const targetRightBias = isFreeOrbit ? 0 : dampedIsolate;
@@ -446,7 +499,6 @@ export function TransactionUniverse3D({
       let desiredTargetX = 0;
       let desiredTargetY = 0;
       let desiredTargetZ = 0;
-      // Zoomed out distances so the entire ring and callouts sit comfortably on the right
       let desiredDistance = 112 - dampedIsolate * 36; // 112 -> 76
       let desiredPolar = 1.14 - dampedIsolate * 0.12;
 
@@ -454,7 +506,6 @@ export function TransactionUniverse3D({
         const edge =
           curData.ringEdges[curHopIdx] ?? curData.ringEdges[0];
         if (edge) {
-          // Gently bias focus toward active hop while keeping whole ring in view
           desiredTargetX = (edge.fromPos.x + edge.toPos.x) * 0.22;
           desiredTargetY = (edge.fromPos.y + edge.toPos.y) * 0.22 + 0.5;
           desiredTargetZ = (edge.fromPos.z + edge.toPos.z) * 0.22;
@@ -462,7 +513,7 @@ export function TransactionUniverse3D({
           desiredPolar = 1.04;
         }
       } else if (curChapter === 4 && !isFreeOrbit) {
-        desiredTargetY = 1.5;
+        desiredTargetY = 1.8;
         desiredDistance = 82;
         desiredPolar = 1.2;
       } else if (curChapter === 5 && !isFreeOrbit) {
@@ -500,11 +551,12 @@ export function TransactionUniverse3D({
 
       renderer.render(scene, camera);
 
-      // 7. Direct-DOM 60fps Floating Callout Positioning (Zero React state lag)
+      // 7. Direct-DOM 60fps Floating Callout Positioning
       if (mountRef.current) {
         const activeEdge = curData.ringEdges[curHopIdx];
+        const minX = !isFreeOrbit && w > 960 ? 520 : 40;
 
-        nodeBundlesRef.current.forEach((bundle, idx) => {
+        nodeBundlesRef.current.forEach((bundle) => {
           const el = labelElsRef.current.get(bundle.node.id);
           if (!el) {
             return;
@@ -522,13 +574,15 @@ export function TransactionUniverse3D({
             (activeEdge.fromId === bundle.node.id ||
               activeEdge.toId === bundle.node.id);
 
-          // Dynamic, low-noise 3D callouts:
-          // - Chapter 3: ONLY the 2 endpoints of the active wire hop (or clicked node)
-          // - Chapters 2, 4, 5: ONLY the Origin/Anchor account (or clicked node)
+          // Show both Dirty Cash In (isAnchor) AND Clean Cash-Out (isCashOut) in Acts 2, 4, 5!
           const shouldDisplay =
             curChapter === 3
               ? Boolean(isHopEndpoint || isSelected)
-              : Boolean(bundle.node.isAnchor || isSelected);
+              : Boolean(
+                  bundle.node.isAnchor ||
+                    bundle.node.isCashOut ||
+                    isSelected
+                );
 
           if (!shouldDisplay) {
             el.style.opacity = '0';
@@ -542,7 +596,6 @@ export function TransactionUniverse3D({
 
           const screenX = (projVec.x * 0.5 + 0.5) * w;
           const screenY = (-projVec.y * 0.5 + 0.5) * h;
-          const minX = !isFreeOrbit && w > 960 ? 520 : 40;
           const inBounds =
             projVec.z < 1 &&
             projVec.z > -1 &&
@@ -557,16 +610,109 @@ export function TransactionUniverse3D({
             return;
           }
 
-          const opacity =
-            curChapter === 3 && !isHopEndpoint && !bundle.node.isAnchor
-              ? 0.48
-              : 0.96;
           el.style.opacity = String(
-            opacity * smoothstep(0.64, 0.92, dampedIsolate)
+            0.96 * smoothstep(0.64, 0.92, dampedIsolate)
           );
           el.style.pointerEvents = 'auto';
           el.style.transform = `translate3d(${screenX.toFixed(1)}px, ${screenY.toFixed(1)}px, 0) translate(-50%, -100%)`;
         });
+
+        // 7b. Floating 3D Wire Amount Pill at Active Hop Midpoint (Act 3)
+        const wireEl = wirePillRef.current;
+        if (wireEl) {
+          if (curChapter === 3 && activeEdge && dampedIsolate > 0.68) {
+            projVec.set(
+              activeEdge.controlPos.x,
+              activeEdge.controlPos.y + 1.05,
+              activeEdge.controlPos.z
+            );
+            projVec.project(camera);
+            const sx = (projVec.x * 0.5 + 0.5) * w;
+            const sy = (-projVec.y * 0.5 + 0.5) * h;
+            if (
+              projVec.z < 1 &&
+              projVec.z > -1 &&
+              sx > minX &&
+              sx < w - 40 &&
+              sy > 76 &&
+              sy < h - 36
+            ) {
+              wireEl.style.opacity = '0.98';
+              wireEl.style.transform = `translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0) translate(-50%, -50%)`;
+            } else {
+              wireEl.style.opacity = '0';
+            }
+          } else {
+            wireEl.style.opacity = '0';
+          }
+        }
+
+        // 7c. Floating 3D Beneficial Owner (UBO) Pill (Act 4 or UBO Overlay Toggle)
+        const uboEl = uboPillRef.current;
+        const primaryUbo = curData.overlayNodes.find(
+          (n) => n.kind === 'ubo' || n.kind === 'entity'
+        );
+        if (uboEl) {
+          if (
+            primaryUbo &&
+            dampedOverlay > 0.55 &&
+            dampedIsolate > 0.68
+          ) {
+            projVec.set(
+              primaryUbo.ringPosition.x,
+              primaryUbo.ringPosition.y +
+                (1 - dampedOverlay) * 6 +
+                primaryUbo.radius +
+                1.0,
+              primaryUbo.ringPosition.z
+            );
+            projVec.project(camera);
+            const sx = (projVec.x * 0.5 + 0.5) * w;
+            const sy = (-projVec.y * 0.5 + 0.5) * h;
+            if (
+              projVec.z < 1 &&
+              projVec.z > -1 &&
+              sx > minX &&
+              sx < w - 40 &&
+              sy > 70 &&
+              sy < h - 36
+            ) {
+              uboEl.style.opacity = String(dampedOverlay);
+              uboEl.style.transform = `translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0) translate(-50%, -100%)`;
+            } else {
+              uboEl.style.opacity = '0';
+            }
+          } else {
+            uboEl.style.opacity = '0';
+          }
+        }
+
+        // 7d. Floating 3D Interception Shield Badge (Act 5 when wire is blocked)
+        const shieldEl = shieldPillRef.current;
+        if (shieldEl && shieldGroupRef.current) {
+          if (isWireBlocked && dampedIsolate > 0.65) {
+            projVec.copy(shieldGroupRef.current.position);
+            projVec.y += 2.1;
+            projVec.project(camera);
+            const sx = (projVec.x * 0.5 + 0.5) * w;
+            const sy = (-projVec.y * 0.5 + 0.5) * h;
+            if (
+              projVec.z < 1 &&
+              projVec.z > -1 &&
+              sx > minX &&
+              sx < w - 40 &&
+              sy > 70 &&
+              sy < h - 36
+            ) {
+              shieldEl.style.opacity = '1';
+              shieldEl.style.transform = `translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0) translate(-50%, -100%)`;
+            } else {
+              shieldEl.style.opacity = '0';
+            }
+          } else {
+            shieldEl.style.opacity = '0';
+          }
+        }
       }
     };
 
@@ -593,6 +739,9 @@ export function TransactionUniverse3D({
     if (!cloudGroup || !ringGroup || !overlayGroup || !shieldGroup) {
       return;
     }
+
+    // Trigger smooth 3D unfold morph on pattern switch
+    patternMorphRef.current = 0.22;
 
     // 1. Background Cloud (Crisp Starlight Particles + Subtle Web)
     cloudGroup.clear();
@@ -650,14 +799,14 @@ export function TransactionUniverse3D({
       const sphereMat = new THREE.MeshStandardMaterial({
         color: node.colorHex,
         emissive: node.colorHex,
-        emissiveIntensity: node.isAnchor ? 0.95 : 0.65,
+        emissiveIntensity: node.isAnchor || node.isCashOut ? 0.95 : 0.65,
         roughness: 0.15,
         metalness: 0.35,
       });
       const coreMesh = new THREE.Mesh(sphereGeo, sphereMat);
       group.add(coreMesh);
 
-      if (node.isAnchor || node.isHighRisk) {
+      if (node.isAnchor || node.isCashOut || node.isHighRisk) {
         const ringGeo = new THREE.RingGeometry(
           node.radius * 1.35,
           node.radius * 1.52,
@@ -667,7 +816,7 @@ export function TransactionUniverse3D({
         const ringMat = new THREE.MeshBasicMaterial({
           color: node.colorHex,
           transparent: true,
-          opacity: 0.65,
+          opacity: 0.68,
           side: THREE.DoubleSide,
         });
         group.add(new THREE.Mesh(ringGeo, ringMat));
@@ -695,6 +844,7 @@ export function TransactionUniverse3D({
     });
 
     const upAxis = new THREE.Vector3(0, 1, 0);
+    const totalEdges = sceneData.ringEdges.length;
 
     sceneData.ringEdges.forEach((edge, idx) => {
       const curve = new THREE.CatmullRomCurve3([
@@ -735,7 +885,9 @@ export function TransactionUniverse3D({
       ringGroup.add(arrowMesh);
       arrowMeshesRef.current.push(arrowMesh);
 
-      const pulseColor = idx === 0 ? 0x38bdf8 : 0xf59e0b;
+      const isLastEdge = idx === totalEdges - 1;
+      const pulseColor =
+        idx === 0 ? 0x38bdf8 : isLastEdge ? 0x10b981 : 0xf59e0b;
       const pulseGeo = new THREE.SphereGeometry(0.22, 12, 12);
       const pulseMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
       const pulseMesh = new THREE.Mesh(pulseGeo, pulseMat);
@@ -804,28 +956,29 @@ export function TransactionUniverse3D({
 
     // 4. Pre-Settlement Interception Shield
     shieldGroup.clear();
-    if (interceptResult && sceneData.ringNodes.length >= 2) {
-      const firstNode = sceneData.ringNodes[0];
-      const lastNode = sceneData.ringNodes[sceneData.ringNodes.length - 1];
-      const midX =
-        (firstNode.ringPosition.x + lastNode.ringPosition.x) / 2;
-      const midY =
-        (firstNode.ringPosition.y + lastNode.ringPosition.y) / 2 + 1.8;
-      const midZ =
-        (firstNode.ringPosition.z + lastNode.ringPosition.z) / 2;
-
+    if (interceptResult && sceneData.ringEdges.length >= 1) {
+      const lastEdge = sceneData.ringEdges[sceneData.ringEdges.length - 1];
       const shieldGeo = new THREE.OctahedronGeometry(1.45, 1);
       const shieldMat = new THREE.MeshBasicMaterial({
         color: 0xf43f5e,
         wireframe: true,
       });
       const shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
-      shieldGroup.position.set(midX, midY, midZ);
+      shieldGroup.position.set(
+        lastEdge.controlPos.x,
+        lastEdge.controlPos.y + 0.6,
+        lastEdge.controlPos.z
+      );
       shieldGroup.add(shieldMesh);
     }
   }, [sceneData, interceptResult]);
 
+  const totalHops = sceneData.ringEdges.length;
   const activeEdge = sceneData.ringEdges[activeHopIndex];
+  const isLastHop = activeHopIndex === Math.max(0, totalHops - 1);
+  const primaryUbo = sceneData.overlayNodes.find(
+    (n) => n.kind === 'ubo' || n.kind === 'entity'
+  );
 
   return (
     <div className="m3-universe3d-stage">
@@ -839,6 +992,24 @@ export function TransactionUniverse3D({
             activeChapter === 3 &&
             activeEdge &&
             (activeEdge.fromId === node.id || activeEdge.toId === node.id);
+
+          let roleTitle = node.label;
+          if (activeChapter === 3 && activeEdge?.fromId === node.id) {
+            roleTitle =
+              activeHopIndex === 0
+                ? `Dirty Cash In • ${node.label}`
+                : `Sender • ${node.label}`;
+          } else if (activeChapter === 3 && activeEdge?.toId === node.id) {
+            roleTitle = isLastHop
+              ? `Clean Cash-Out • ${node.label}`
+              : `Mule Hop ${activeHopIndex + 1} • ${node.label}`;
+          } else if (node.isAnchor && node.isCashOut) {
+            roleTitle = `Dirty In & Clean Return • ${node.label}`;
+          } else if (node.isAnchor) {
+            roleTitle = `1. Dirty Cash In • ${node.label}`;
+          } else if (node.isCashOut) {
+            roleTitle = `3. Clean Cash-Out • ${node.label}`;
+          }
 
           return (
             <button
@@ -854,9 +1025,9 @@ export function TransactionUniverse3D({
               onClick={() => onSelectNodeId(node.id)}
               className={`m3-node3d-pill ${
                 node.isAnchor ? 'm3-node3d-pill--anchor' : ''
-              } ${node.isHighRisk ? 'm3-node3d-pill--danger' : ''} ${
-                isSelected || isHopEndpoint ? 'm3-node3d-pill--active' : ''
-              }`}
+              } ${node.isCashOut && !node.isAnchor ? 'm3-node3d-pill--cashout' : ''} ${
+                node.isHighRisk ? 'm3-node3d-pill--danger' : ''
+              } ${isSelected || isHopEndpoint ? 'm3-node3d-pill--active' : ''}`}
               style={{ opacity: 0, pointerEvents: 'none' }}
             >
               <span
@@ -867,22 +1038,68 @@ export function TransactionUniverse3D({
                 }}
               />
               <span className="m3-node3d-pill__text">
-                <strong>
-                  {activeChapter === 3 && activeEdge?.fromId === node.id
-                    ? `Sender • ${node.label}`
-                    : activeChapter === 3 && activeEdge?.toId === node.id
-                      ? `Receiver • ${node.label}`
-                      : node.isAnchor
-                        ? `Origin • ${node.label}`
-                        : node.label}
-                </strong>
-                {(isSelected || isHopEndpoint) && (
+                <strong>{roleTitle}</strong>
+                {(isSelected || isHopEndpoint || node.isAnchor || node.isCashOut) && (
                   <small>{node.jurisdiction}</small>
                 )}
               </span>
             </button>
           );
         })}
+
+        {/* Floating 3D Wire Amount Pill at Active Hop Midpoint (Act 3) */}
+        <div
+          ref={wirePillRef}
+          className={`m3-wire3d-pill ${
+            isLastHop ? 'm3-wire3d-pill--cashout' : ''
+          }`}
+          style={{ opacity: 0, pointerEvents: 'none' }}
+        >
+          {activeEdge && (
+            <>
+              <span className="m3-wire3d-pill__stage">
+                {activeHopIndex === 0
+                  ? 'PLACEMENT'
+                  : isLastHop
+                    ? 'CLEAN CASH-OUT'
+                    : `LAYERING HOP ${activeHopIndex + 1}`}
+              </span>
+              <strong className="mono-num">
+                $
+                {activeEdge.hop.amount_paid.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}{' '}
+                {isLastHop ? '✓' : '→'}
+              </strong>
+            </>
+          )}
+        </div>
+
+        {/* Floating 3D Beneficial Owner (UBO) Pill (Act 4) */}
+        <div
+          ref={uboPillRef}
+          className="m3-ubo3d-pill"
+          style={{ opacity: 0, pointerEvents: 'none' }}
+        >
+          {primaryUbo && (
+            <>
+              <span className="m3-ubo3d-pill__tag">SHARED BENEFICIAL OWNER</span>
+              <strong>
+                {primaryUbo.label} ({primaryUbo.jurisdiction})
+              </strong>
+            </>
+          )}
+        </div>
+
+        {/* Floating 3D Interception Badge (Act 5) */}
+        <div
+          ref={shieldPillRef}
+          className="m3-shield3d-pill"
+          style={{ opacity: 0, pointerEvents: 'none' }}
+        >
+          <span>⛔ WIRE BLOCKED BEFORE CLEAN PAYOUT</span>
+        </div>
       </div>
 
       {/* Bottom-Right 3D Camera Zoom & Orbit Controls */}

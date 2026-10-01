@@ -1875,3 +1875,224 @@ body,
     box-shadow: 0 2px 10px rgba(56, 189, 248, 0.18);
   }
 }
+
+
+/* ============================================================================
+   10/10 MONEY LAUNDERING CLARITY & 3D CALLOUT ENHANCEMENTS
+   ============================================================================ */
+
+.m3-scrolly-card {
+  transition: border-color 0.28s ease, box-shadow 0.28s ease, transform 0.28s ease;
+
+  &--active {
+    border-color: rgba(56, 189, 248, 0.36);
+    box-shadow: 0 20px 52px rgba(2, 6, 23, 0.78), 0 0 28px rgba(56, 189, 248, 0.12);
+  }
+}
+
+.m3-clean-how-box {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.13), rgba(14, 165, 233, 0.09));
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-left: 3px solid #10b981;
+  border-radius: 14px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+
+  &__tag {
+    display: inline-block;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #34d399;
+    margin-bottom: 3px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: #e2e8f0;
+  }
+}
+
+.m3-amount-flow-banner__item--clean {
+  strong {
+    color: #34d399 !important;
+  }
+  small {
+    color: #6ee7b7 !important;
+  }
+}
+
+.m3-laundering-stage-pill {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 13px;
+  border-radius: 14px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: rgba(15, 23, 42, 0.82);
+
+  strong {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  span {
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: #cbd5e1;
+  }
+
+  &--placement {
+    border-color: rgba(56, 189, 248, 0.45);
+    background: rgba(56, 189, 248, 0.11);
+    strong {
+      color: #7dd3fc;
+    }
+  }
+
+  &--layering {
+    border-color: rgba(129, 140, 248, 0.45);
+    background: rgba(99, 102, 241, 0.12);
+    strong {
+      color: #a5b4fc;
+    }
+  }
+
+  &--integration {
+    border-color: rgba(16, 185, 129, 0.5);
+    background: rgba(16, 185, 129, 0.14);
+    strong {
+      color: #34d399;
+    }
+  }
+}
+
+.m3-next-chapter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: rgba(56, 189, 248, 0.1);
+  color: #7dd3fc;
+  font-family: var(--md-sys-typescale-display-font);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s ease;
+
+  &:hover {
+    background: rgba(56, 189, 248, 0.22);
+    border-color: #38bdf8;
+    color: #ffffff;
+    transform: translateY(1px);
+  }
+}
+
+.m3-node3d-pill--cashout {
+  border-color: rgba(16, 185, 129, 0.65) !important;
+  background: rgba(6, 36, 28, 0.9) !important;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.25) !important;
+}
+
+.m3-wire3d-pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(8, 15, 32, 0.92);
+  border: 1.5px solid #38bdf8;
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.75), 0 0 18px rgba(56, 189, 248, 0.35);
+  color: #f8fafc;
+  white-space: nowrap;
+  will-change: transform, opacity;
+
+  &__stage {
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    color: #7dd3fc;
+    background: rgba(56, 189, 248, 0.16);
+    padding: 2px 7px;
+    border-radius: 999px;
+  }
+
+  strong {
+    font-size: 0.82rem;
+    color: #ffffff;
+  }
+
+  &--cashout {
+    border-color: #10b981;
+    box-shadow: 0 8px 24px rgba(2, 6, 23, 0.75), 0 0 20px rgba(16, 185, 129, 0.4);
+
+    .m3-wire3d-pill__stage {
+      color: #6ee7b7;
+      background: rgba(16, 185, 129, 0.2);
+    }
+
+    strong {
+      color: #a7f3d0;
+    }
+  }
+}
+
+.m3-ubo3d-pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 13px;
+  border-radius: 14px;
+  background: rgba(28, 14, 48, 0.92);
+  border: 1.5px solid #c084fc;
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.75), 0 0 20px rgba(168, 85, 247, 0.38);
+  color: #f8fafc;
+  white-space: nowrap;
+  will-change: transform, opacity;
+
+  &__tag {
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: #d8b4fe;
+  }
+
+  strong {
+    font-size: 0.78rem;
+    color: #ffffff;
+  }
+}
+
+.m3-shield3d-pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(68, 10, 26, 0.94);
+  border: 1.5px solid #f43f5e;
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.8), 0 0 24px rgba(244, 63, 94, 0.5);
+  color: #fecdd3;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  will-change: transform, opacity;
+}

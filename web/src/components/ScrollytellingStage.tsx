@@ -53,6 +53,7 @@ interface PatternMeta {
   readonly shortName: string;
   readonly shapeBadge: string;
   readonly shortDesc: string;
+  readonly cleanHow: string;
 }
 
 const EIGHT_AML_PATTERNS: readonly PatternMeta[] = [
@@ -63,7 +64,9 @@ const EIGHT_AML_PATTERNS: readonly PatternMeta[] = [
     shortName: 'Circular',
     shapeBadge: '10-Hop Ring',
     shortDesc:
-      'Funds hop across 10 accounts and return to the sender disguised as clean revenue.',
+      'Dirty cash hops across 10 accounts and returns to the sender disguised as clean revenue.',
+    cleanHow:
+      'Wires illicit funds through 9 offshore mules and pays the criminal’s own company back via a fake "foreign client invoice."',
   },
   {
     num: '02',
@@ -72,7 +75,9 @@ const EIGHT_AML_PATTERNS: readonly PatternMeta[] = [
     shortName: 'Fan-Out',
     shapeBadge: '1 → 16 Split',
     shortDesc:
-      'One origin account splits funds across 16 mule accounts below reporting thresholds.',
+      'One origin account splits dirty funds across 16 mule accounts below reporting thresholds.',
+    cleanHow:
+      'Breaks a large illicit sum into 16 small wires ("smurfing") so no single transfer triggers a $10k bank alert before cash-out.',
   },
   {
     num: '03',
@@ -81,7 +86,9 @@ const EIGHT_AML_PATTERNS: readonly PatternMeta[] = [
     shortName: 'Fan-In',
     shapeBadge: '22 → 1 Funnel',
     shortDesc:
-      'Multiple feeder accounts funnel structured deposits into a single collector account.',
+      '22 feeder accounts funnel structured deposits into one clean collector account.',
+    cleanHow:
+      'Aggregates small street-level deposits from 22 mules into one "merchant" treasury account to buy clean real estate or luxury assets.',
   },
   {
     num: '04',
@@ -90,7 +97,9 @@ const EIGHT_AML_PATTERNS: readonly PatternMeta[] = [
     shortName: 'Scatter-Gather',
     shapeBadge: 'Diamond',
     shortDesc:
-      'One sender scatters wires across mule accounts that reconverge at a single collector.',
+      'One sender scatters dirty cash across mules that reconverge at a clean payout account.',
+    cleanHow:
+      'Splits illicit cash across independent intermediaries to sever the audit trail, then recombines ~95% in a clean destination account.',
   },
   {
     num: '05',
@@ -99,7 +108,9 @@ const EIGHT_AML_PATTERNS: readonly PatternMeta[] = [
     shortName: 'Gather-Scatter',
     shapeBadge: 'Hourglass Hub',
     shortDesc:
-      'A central hub aggregates deposits from many senders before dispersing them downstream.',
+      'A central shadow hub pools dirty deposits from many senders and pays out clean wires.',
+    cleanHow:
+      'Commingles funds from multiple illicit sources inside one clearinghouse account so banks cannot match incoming cash to outgoing payouts.',
   },
   {
     num: '06',
@@ -108,7 +119,9 @@ const EIGHT_AML_PATTERNS: readonly PatternMeta[] = [
     shortName: 'Bipartite',
     shapeBadge: '2-Layer Relay',
     shortDesc:
-      'Feeder accounts wire funds through a parallel layer of pass-through conduits.',
+      'Feeder accounts wire dirty funds through a parallel wall of pass-through shell conduits.',
+    cleanHow:
+      'Uses two separated layers of front companies to convert illicit cash into seemingly legitimate B2B vendor settlements.',
   },
   {
     num: '07',
@@ -117,7 +130,9 @@ const EIGHT_AML_PATTERNS: readonly PatternMeta[] = [
     shortName: 'Stacked',
     shapeBadge: '3-Tier Cascade',
     shortDesc:
-      'Funds cascade sequentially across multiple tiers of intermediate shell accounts.',
+      'Funds cascade sequentially across 3 tiers of shell companies before final payout.',
+    cleanHow:
+      'Each corporate tier takes a ~2% cut and issues a new cross-border trade receipt, leaving the final payout looking completely legitimate.',
   },
   {
     num: '08',
@@ -126,7 +141,9 @@ const EIGHT_AML_PATTERNS: readonly PatternMeta[] = [
     shortName: 'Random Walk',
     shapeBadge: '8-Hop Trail',
     shortDesc:
-      'High-velocity 8-hop chain across 9 accounts that never loops back to its origin.',
+      'High-velocity 8-hop chain across 9 accounts that races to a clean offshore exit.',
+    cleanHow:
+      'Jumps rapidly across 9 banks in hours—outpacing manual compliance recalls—until the final account cashes out clean funds.',
   },
 ];
 
@@ -139,6 +156,8 @@ const BONUS_OWNERSHIP_PATTERNS: readonly PatternMeta[] = [
     shapeBadge: 'Shared Owner',
     shortDesc:
       'Offshore shell companies look unrelated until Spanner links their shared Beneficial Owner.',
+    cleanHow:
+      'One human owner secretly controls all 3 offshore shell companies—paying themselves "consulting fees" across borders to clean the cash.',
   },
   {
     num: '3-HOP',
@@ -148,6 +167,8 @@ const BONUS_OWNERSHIP_PATTERNS: readonly PatternMeta[] = [
     shapeBadge: 'Cayman Loop',
     shortDesc:
       'Rapid round-trip wire loop through Cayman Islands, BVI, and Panama shell accounts.',
+    cleanHow:
+      'Cycles dirty cash through secrecy havens and returns 95% to the origin account disguised as an offshore investment payout.',
   },
 ];
 
@@ -228,6 +249,32 @@ export function ScrollytellingStage({
     }, 1600);
     return () => window.clearInterval(timer);
   }, [isAutoPlayingHops, hopCount]);
+
+  // Keyboard ← / → support when in Act 3 (Follow the Money)
+  useEffect(() => {
+    if (activeChapter !== 3 || hopCount <= 1) {
+      return;
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setIsAutoPlayingHops(false);
+        manualHopLockUntilRef.current = Date.now() + 4000;
+        setActiveHopIndex((prev) => (prev + 1) % hopCount);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setIsAutoPlayingHops(false);
+        manualHopLockUntilRef.current = Date.now() + 4000;
+        setActiveHopIndex((prev) => Math.max(0, prev - 1));
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeChapter, hopCount]);
 
   const syncScroll = useCallback(() => {
     if (freeOrbitOnly) {
@@ -331,6 +378,7 @@ export function ScrollytellingStage({
   };
 
   const currentHop = hops[activeHopIndex] ?? hops[0];
+  const isLastHop = activeHopIndex === Math.max(0, hopCount - 1);
   const activePatternMeta =
     EIGHT_AML_PATTERNS.find((p) => p.caseId === selectedCaseId) ??
     BONUS_OWNERSHIP_PATTERNS.find((p) => p.caseId === selectedCaseId) ??
@@ -463,7 +511,8 @@ export function ScrollytellingStage({
               Every point in this 3D space is an account across{' '}
               <strong>{(health?.banks_count ?? 473).toLocaleString()} banks</strong>
               —and hidden inside normal traffic are{' '}
-              <strong>8 money laundering rings</strong>.
+              <strong>8 money laundering schemes</strong> turning dirty cash
+              into clean revenue.
             </p>
 
             <div className="m3-hero-cta-row">
@@ -486,22 +535,36 @@ export function ScrollytellingStage({
           </div>
         </section>
 
-        {/* ACT 02: THE 8 LAUNDERING PATTERNS & AMOUNTS */}
+        {/* ACT 02: THE 8 LAUNDERING PATTERNS & HOW MONEY GETS CLEANED */}
         <section
           ref={(el) => {
             chapterRefs.current[1] = el;
           }}
           className="m3-scrolly-section"
         >
-          <div className="m3-scrolly-card m3-scrolly-card--wide">
+          <div
+            className={`m3-scrolly-card m3-scrolly-card--wide ${
+              activeChapter === 2 ? 'm3-scrolly-card--active' : ''
+            }`}
+          >
             <div className="m3-scrolly-eyebrow">01 • 8 LAUNDERING PATTERNS</div>
             <h2 className="m3-scrolly-h2">{activePatternMeta.name}</h2>
-            <p className="m3-scrolly-body">{activePatternMeta.shortDesc}</p>
+            <p className="m3-scrolly-body" style={{ marginBottom: 12 }}>
+              {activePatternMeta.shortDesc}
+            </p>
+
+            {/* Crystal-Clear "How They Clean & Gain the Money" Strip */}
+            <div className="m3-clean-how-box">
+              <span className="m3-clean-how-box__tag">
+                HOW THE MONEY GETS CLEANED
+              </span>
+              <p>{activePatternMeta.cleanHow}</p>
+            </div>
 
             {investigation && (
               <div className="m3-amount-flow-banner">
                 <div className="m3-amount-flow-banner__item">
-                  <span>First Wire</span>
+                  <span>1. Dirty Cash In</span>
                   <strong className="mono-num">
                     $
                     {investigation.evidence.initial_amount.toLocaleString(
@@ -509,10 +572,11 @@ export function ScrollytellingStage({
                       { maximumFractionDigits: 0 }
                     )}
                   </strong>
+                  <small>Illicit Origin</small>
                 </div>
                 <span className="m3-amount-flow-banner__arrow">→</span>
                 <div className="m3-amount-flow-banner__item m3-amount-flow-banner__item--highlight">
-                  <span>Total Moved</span>
+                  <span>2. Layering Trail</span>
                   <strong className="mono-num">
                     $
                     {totalVolumeUsd.toLocaleString(undefined, {
@@ -525,8 +589,8 @@ export function ScrollytellingStage({
                   </small>
                 </div>
                 <span className="m3-amount-flow-banner__arrow">→</span>
-                <div className="m3-amount-flow-banner__item">
-                  <span>Final Wire</span>
+                <div className="m3-amount-flow-banner__item m3-amount-flow-banner__item--clean">
+                  <span>3. Clean Cash-Out</span>
                   <strong className="mono-num">
                     $
                     {investigation.evidence.final_amount.toLocaleString(
@@ -534,9 +598,7 @@ export function ScrollytellingStage({
                       { maximumFractionDigits: 0 }
                     )}
                   </strong>
-                  <small>
-                    {investigation.evidence.query_latency_ms.toFixed(0)} ms
-                  </small>
+                  <small>Disguised Payout</small>
                 </div>
               </div>
             )}
@@ -572,24 +634,34 @@ export function ScrollytellingStage({
                 display: 'flex',
                 gap: 6,
                 flexWrap: 'wrap',
-                marginTop: 8,
+                marginTop: 6,
                 alignItems: 'center',
+                justifyContent: 'space-between',
               }}
             >
-              {BONUS_OWNERSHIP_PATTERNS.map((pat) => (
-                <button
-                  key={pat.caseId}
-                  type="button"
-                  className={`m3-filter-chip ${
-                    selectedCaseId === pat.caseId
-                      ? 'm3-filter-chip--active'
-                      : ''
-                  }`}
-                  onClick={() => handleSelectPatternById(pat.caseId)}
-                >
-                  {pat.shortName}
-                </button>
-              ))}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {BONUS_OWNERSHIP_PATTERNS.map((pat) => (
+                  <button
+                    key={pat.caseId}
+                    type="button"
+                    className={`m3-filter-chip ${
+                      selectedCaseId === pat.caseId
+                        ? 'm3-filter-chip--active'
+                        : ''
+                    }`}
+                    onClick={() => handleSelectPatternById(pat.caseId)}
+                  >
+                    {pat.shortName}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="m3-next-chapter-btn"
+                onClick={() => scrollToChapter(3)}
+              >
+                Next: Follow the Money ↓
+              </button>
             </div>
           </div>
         </section>
@@ -601,15 +673,41 @@ export function ScrollytellingStage({
           }}
           className="m3-scrolly-section"
         >
-          <div className="m3-scrolly-card">
+          <div
+            className={`m3-scrolly-card ${
+              activeChapter === 3 ? 'm3-scrolly-card--active' : ''
+            }`}
+          >
             <div className="m3-scrolly-eyebrow">02 • FOLLOW THE MONEY</div>
             <h2 className="m3-scrolly-h2">
               Hop {activeHopIndex + 1} of {Math.max(hopCount, 1)}
             </h2>
-            <p className="m3-scrolly-body">
-              Step through the wire trail—each transfer settles strictly after
-              the previous hop.
-            </p>
+
+            {/* Dynamic 3-Stage Laundering Lifecycle Indicator */}
+            <div
+              className={`m3-laundering-stage-pill ${
+                activeHopIndex === 0
+                  ? 'm3-laundering-stage-pill--placement'
+                  : isLastHop
+                    ? 'm3-laundering-stage-pill--integration'
+                    : 'm3-laundering-stage-pill--layering'
+              }`}
+            >
+              <strong>
+                {activeHopIndex === 0
+                  ? 'STAGE 1: PLACEMENT — Dirty Cash Enters'
+                  : isLastHop
+                    ? 'STAGE 3: INTEGRATION — Clean Cash-Out!'
+                    : 'STAGE 2: LAYERING — Scrambling the Trail'}
+              </strong>
+              <span>
+                {activeHopIndex === 0
+                  ? 'Illicit cash is wired from the origin account into the first mule.'
+                  : isLastHop
+                    ? 'The final wire lands disguised as clean business revenue or asset payout.'
+                    : 'Mule accounts forward the money across banks to sever the audit trail.'}
+              </span>
+            </div>
 
             {/* Clean Progress Bar + Playback Controls */}
             <div className="m3-hop-progress-track">
@@ -630,7 +728,7 @@ export function ScrollytellingStage({
                 display: 'flex',
                 gap: 8,
                 alignItems: 'center',
-                marginBottom: 16,
+                marginBottom: 14,
               }}
             >
               <button
@@ -678,7 +776,10 @@ export function ScrollytellingStage({
 
             {currentHop && (
               <div className="m3-hop-spotlight-card">
-                <div className="m3-hop-spotlight-card__amount mono-num">
+                <div
+                  className="m3-hop-spotlight-card__amount mono-num"
+                  style={{ color: isLastHop ? '#10b981' : '#38bdf8' }}
+                >
                   $
                   {currentHop.amount_paid.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
@@ -691,7 +792,9 @@ export function ScrollytellingStage({
 
                 <div className="m3-hop-spotlight-card__route">
                   <div>
-                    <small>SENDER</small>
+                    <small>
+                      {activeHopIndex === 0 ? 'DIRTY CASH SENDER' : 'MULE SENDER'}
+                    </small>
                     <strong>
                       {investigation?.kyc_profiles[currentHop.from_account_id]
                         ?.entity_name ?? currentHop.from_account_id}
@@ -700,12 +803,17 @@ export function ScrollytellingStage({
                   </div>
                   <span
                     className="material-symbols-outlined"
-                    style={{ color: '#38bdf8', fontSize: 20 }}
+                    style={{
+                      color: isLastHop ? '#10b981' : '#38bdf8',
+                      fontSize: 20,
+                    }}
                   >
                     arrow_forward
                   </span>
                   <div>
-                    <small>RECEIVER</small>
+                    <small>
+                      {isLastHop ? 'CLEAN PAYOUT RECEIVER' : 'MULE RECEIVER'}
+                    </small>
                     <strong>
                       {investigation?.kyc_profiles[currentHop.to_account_id]
                         ?.entity_name ?? currentHop.to_account_id}
@@ -714,10 +822,26 @@ export function ScrollytellingStage({
                   </div>
                 </div>
 
-                <div className="m3-mono-muted" style={{ marginTop: 10 }}>
-                  {currentHop.event_timestamp
-                    .replace('T', ' ')
-                    .replace('+00:00', ' UTC')}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginTop: 10,
+                  }}
+                >
+                  <span className="m3-mono-muted">
+                    {currentHop.event_timestamp
+                      .replace('T', ' ')
+                      .replace('+00:00', ' UTC')}
+                  </span>
+                  <button
+                    type="button"
+                    className="m3-next-chapter-btn"
+                    onClick={() => scrollToChapter(4)}
+                  >
+                    Next: Why Spanner Graph ↓
+                  </button>
                 </div>
               </div>
             )}
@@ -731,21 +855,26 @@ export function ScrollytellingStage({
           }}
           className="m3-scrolly-section"
         >
-          <div className="m3-scrolly-card">
+          <div
+            className={`m3-scrolly-card ${
+              activeChapter === 4 ? 'm3-scrolly-card--active' : ''
+            }`}
+          >
             <div className="m3-scrolly-eyebrow">03 • WHY SPANNER GRAPH</div>
             <h2 className="m3-scrolly-h2">
               1 Graph Traversal vs. 10 SQL Joins
             </h2>
             <p className="m3-scrolly-body">
-              Spanner queries multi-hop paths and beneficial owners directly on
-              the live operational ledger—with zero ETL delay.
+              Launderers hide behind multi-hop shell companies. Spanner exposes
+              the entire path and shared <strong>Beneficial Owner (UBO)</strong>{' '}
+              on the live ledger—with zero ETL delay.
             </p>
 
             <div className="m3-sql-vs-gql-grid">
               <div className="m3-sql-vs-gql-box m3-sql-vs-gql-box--bad">
                 <span>Legacy SQL</span>
                 <strong>10 SELF-JOINs</strong>
-                <small>Hours of batch ETL after funds vanish</small>
+                <small>Hours of batch ETL after clean cash-out</small>
               </div>
               <div className="m3-sql-vs-gql-box m3-sql-vs-gql-box--good">
                 <span>Spanner Graph</span>
@@ -754,7 +883,7 @@ export function ScrollytellingStage({
                   {investigation
                     ? `${investigation.evidence.query_latency_ms.toFixed(0)} ms`
                     : '~120 ms'}{' '}
-                  on live ledger
+                  before funds leave
                 </small>
               </div>
             </div>
@@ -852,7 +981,7 @@ export function ScrollytellingStage({
             )}
 
             {showGqlCode && investigation?.demo_guide?.gql_query && (
-              <div>
+              <div style={{ marginBottom: 12 }}>
                 <div
                   style={{
                     display: 'flex',
@@ -882,6 +1011,16 @@ export function ScrollytellingStage({
                 </pre>
               </div>
             )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="m3-next-chapter-btn"
+                onClick={() => scrollToChapter(5)}
+              >
+                Next: Stop the Clean Payout ↓
+              </button>
+            </div>
           </div>
         </section>
 
@@ -892,12 +1031,18 @@ export function ScrollytellingStage({
           }}
           className="m3-scrolly-section"
         >
-          <div className="m3-scrolly-card">
+          <div
+            className={`m3-scrolly-card ${
+              activeChapter === 5 ? 'm3-scrolly-card--active' : ''
+            }`}
+          >
             <div className="m3-scrolly-eyebrow">04 • REAL-TIME PREVENTION</div>
-            <h2 className="m3-scrolly-h2">Block in &lt;150ms. File 1 SAR.</h2>
+            <h2 className="m3-scrolly-h2">
+              Block Before Clean Payout. File 1 SAR.
+            </h2>
             <p className="m3-scrolly-body">
-              Intercept ring-closing wires before settlement, then draft a
-              grounded FinCEN report with Vertex AI Gemini.
+              Intercept the final cash-out wire in &lt;150ms before settlement,
+              then draft a grounded FinCEN report with Vertex AI Gemini.
             </p>
 
             {/* Clean 2-Tab Switcher so only one tool is shown at a time */}
@@ -909,7 +1054,7 @@ export function ScrollytellingStage({
                 }`}
                 onClick={() => setActionTab('block')}
               >
-                1. Block Wire
+                1. Block Cash-Out Wire
               </button>
               <button
                 type="button"
@@ -983,7 +1128,8 @@ export function ScrollytellingStage({
                   >
                     <strong>{interceptResult.decision}</strong> •{' '}
                     {interceptResult.latency_ms.toFixed(1)} ms •{' '}
-                    {interceptResult.matched_rings.length} cycle(s) matched
+                    {interceptResult.matched_rings.length} cycle(s) matched —
+                    clean payout frozen in 3D!
                   </div>
                 )}
               </div>

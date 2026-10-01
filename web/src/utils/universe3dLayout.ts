@@ -23,6 +23,7 @@ export interface RingNode3D {
   readonly badgeColor: string;
   readonly radius: number;
   readonly isAnchor: boolean;
+  readonly isCashOut: boolean;
   readonly isHighRisk: boolean;
   readonly profile?: AccountKycProfile;
 }
@@ -108,6 +109,38 @@ export function extractUniqueAccounts(
     push(h.to_account_id);
   });
   return ordered;
+}
+
+function resolveAnchorAndCashOutIds(
+  investigation: EnrichedCaseInvestigation,
+  accounts: readonly string[]
+): { readonly anchorId: string; readonly cashOutId: string } {
+  const hops = investigation.evidence.hops;
+  const typology = investigation.evidence.typology;
+  const anchorId = hops[0]?.from_account_id ?? accounts[0] ?? '';
+
+  if (typology === 'FAN_IN' && hops.length > 0) {
+    const sinkCounts = new Map<string, number>();
+    hops.forEach((h) => {
+      sinkCounts.set(h.to_account_id, (sinkCounts.get(h.to_account_id) ?? 0) + 1);
+    });
+    let sinkId = hops[0]?.to_account_id ?? accounts[accounts.length - 1] ?? '';
+    let maxIn = -1;
+    sinkCounts.forEach((cnt, id) => {
+      if (cnt > maxIn) {
+        maxIn = cnt;
+        sinkId = id;
+      }
+    });
+    return { anchorId, cashOutId: sinkId };
+  }
+
+  const lastReceiver =
+    hops[hops.length - 1]?.to_account_id ??
+    accounts[accounts.length - 1] ??
+    anchorId;
+
+  return { anchorId, cashOutId: lastReceiver };
 }
 
 function computeAccountPositions3D(
@@ -309,13 +342,17 @@ export function buildUniverse3DSceneData(
 
   if (investigation && uniqueAccounts.length > 0) {
     const posMap = computeAccountPositions3D(investigation, uniqueAccounts);
-    const anchorId = uniqueAccounts[0] ?? '';
+    const { anchorId, cashOutId } = resolveAnchorAndCashOutIds(
+      investigation,
+      uniqueAccounts
+    );
 
     uniqueAccounts.forEach((accId, idx) => {
       const ringPos = posMap.get(accId) ?? { x: 0, y: 0, z: 0 };
       const cloudPos = computeCloudScatterPosition(accId, idx);
       const profile = investigation.kyc_profiles[accId];
       const isAnchor = accId === anchorId;
+      const isCashOut = accId === cashOutId;
       const isHighRisk = Boolean(
         profile?.is_pep_or_sanctioned ||
           profile?.is_flagged ||
@@ -325,14 +362,18 @@ export function buildUniverse3DSceneData(
 
       const colorHex = isAnchor
         ? 0x38bdf8
-        : isHighRisk
-          ? 0xf43f5e
-          : 0x818cf8;
+        : isCashOut
+          ? 0x10b981
+          : isHighRisk
+            ? 0xf43f5e
+            : 0x818cf8;
       const badgeColor = isAnchor
         ? '#38bdf8'
-        : isHighRisk
-          ? '#f43f5e'
-          : '#818cf8';
+        : isCashOut
+          ? '#10b981'
+          : isHighRisk
+            ? '#f43f5e'
+            : '#818cf8';
 
       ringNodes.push({
         id: accId,
@@ -344,13 +385,15 @@ export function buildUniverse3DSceneData(
         ringPosition: ringPos,
         colorHex,
         badgeColor,
-        radius: isAnchor ? 0.92 : 0.66,
+        radius: isAnchor ? 0.94 : isCashOut ? 0.86 : 0.66,
         isAnchor,
+        isCashOut,
         isHighRisk,
         profile,
       });
     });
 
+    const totalHops = investigation.evidence.hops.length;
     investigation.evidence.hops.forEach((hop, idx) => {
       const fromPos = posMap.get(hop.from_account_id) ?? { x: -10, y: 0, z: 0 };
       const toPos = posMap.get(hop.to_account_id) ?? { x: 10, y: 0, z: 0 };
@@ -366,6 +409,7 @@ export function buildUniverse3DSceneData(
       const midZ =
         rawMidZ * outwardPush + (radialLen <= 0.5 ? (idx % 2 === 0 ? 0.8 : -0.8) : 0);
 
+      const isLastHop = idx === totalHops - 1;
       ringEdges.push({
         id: `${hop.transaction_id}:${idx}`,
         hop,
@@ -374,7 +418,7 @@ export function buildUniverse3DSceneData(
         fromPos,
         toPos,
         controlPos: { x: midX, y: midY, z: midZ },
-        colorHex: idx === 0 ? 0x38bdf8 : 0x6366f1,
+        colorHex: idx === 0 ? 0x38bdf8 : isLastHop ? 0x10b981 : 0x6366f1,
       });
     });
 
@@ -415,6 +459,7 @@ export function buildUniverse3DSceneData(
             badgeColor: isUbo ? '#c084fc' : '#fb7185',
             radius: isUbo ? 1.04 : 0.8,
             isAnchor: false,
+            isCashOut: false,
             isHighRisk: profile.is_pep_or_sanctioned,
           });
         }
@@ -449,6 +494,7 @@ export function buildUniverse3DSceneData(
             badgeColor: '#38bdf8',
             radius: 0.76,
             isAnchor: false,
+            isCashOut: false,
             isHighRisk: false,
           });
         }
