@@ -21,19 +21,11 @@ export function WorkbenchHeader({
         <div className="m3-top-bar__logo" aria-hidden="true">
           <span className="material-symbols-outlined">hub</span>
         </div>
-        <div>
-          <div className="m3-top-bar__title">
-            Google Cloud Spanner Graph{' '}
-            <span>• AML Investigation Workbench</span>
-          </div>
-          <div className="m3-top-bar__subtitle">
-            Real-Time ISO GQL Pattern Matching & Single-Ticket Vertex AI Gemini
-            SAR
-          </div>
+        <div className="m3-top-bar__title">
+          Cloud Spanner Graph <span>• AML</span>
         </div>
       </div>
 
-      {/* M3 Segmented View Mode Switcher */}
       <div className="m3-segmented-group" role="tablist" aria-label="View Mode">
         <button
           type="button"
@@ -45,7 +37,7 @@ export function WorkbenchHeader({
           <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
             auto_awesome_motion
           </span>
-          3D Story Scroll
+          3D Story
         </button>
         <button
           type="button"
@@ -57,7 +49,7 @@ export function WorkbenchHeader({
           <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
             3d_rotation
           </span>
-          3D Free Orbit
+          3D Sandbox
         </button>
         <button
           type="button"
@@ -69,7 +61,7 @@ export function WorkbenchHeader({
           <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
             schema
           </span>
-          2D Workbench
+          2D Inspector
         </button>
       </div>
 
@@ -81,52 +73,33 @@ export function WorkbenchHeader({
           >
             <span
               className="material-symbols-outlined"
-              style={{ fontSize: 16 }}
+              style={{ fontSize: 14 }}
             >
-              check_circle
+              fiber_manual_record
             </span>
             <span>
-              Spanner Live ({health.accounts_count.toLocaleString()} accts •{' '}
-              {health.transactions_count.toLocaleString()} txs)
+              Spanner Live
+              {lastLatencyMs !== null ? ` • ${lastLatencyMs.toFixed(0)} ms` : ''}
             </span>
           </div>
         ) : (
           <div className="m3-status-pill">
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: 16 }}
-            >
-              sync
-            </span>
             <span>Connecting...</span>
           </div>
         )}
 
-        {lastLatencyMs !== null && (
-          <div
-            className="m3-status-pill m3-status-pill--latency"
-            title="Last Spanner ISO GQL traversal latency"
+        {viewMode === 'workbench2d' && (
+          <button
+            type="button"
+            className="m3-btn m3-btn--tonal"
+            onClick={onOpenSimulator}
           >
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: 16 }}
-            >
-              bolt
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+              science
             </span>
-            <span>GQL {lastLatencyMs.toFixed(0)} ms</span>
-          </div>
+            Simulator
+          </button>
         )}
-
-        <button
-          type="button"
-          className="m3-btn m3-btn--tonal"
-          onClick={onOpenSimulator}
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
-            science
-          </span>
-          Live Simulator
-        </button>
       </div>
     </header>
   );

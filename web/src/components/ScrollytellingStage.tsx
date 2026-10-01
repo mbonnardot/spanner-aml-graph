@@ -50,10 +50,8 @@ interface PatternMeta {
   readonly num: string;
   readonly caseId: string;
   readonly name: string;
-  readonly nickname: string;
+  readonly shortName: string;
   readonly shapeBadge: string;
-  readonly amountHint: string;
-  readonly icon: string;
   readonly shortDesc: string;
 }
 
@@ -61,90 +59,74 @@ const EIGHT_AML_PATTERNS: readonly PatternMeta[] = [
   {
     num: '01',
     caseId: 'CASE_HI_CYCLE_10HOP',
-    name: 'Circular Layering (Cycle)',
-    nickname: 'The Washing Machine',
-    shapeBadge: '10-Hop 3D Ring',
-    amountHint: '$8,805 → $7,945',
-    icon: 'sync',
+    name: 'Circular Layering',
+    shortName: 'Circular',
+    shapeBadge: '10-Hop Ring',
     shortDesc:
-      'Funds bounce across 10 accounts and return to the sender disguised as clean revenue.',
+      'Funds hop across 10 accounts and return to the sender disguised as clean revenue.',
   },
   {
     num: '02',
     caseId: 'CASE_HI_FAN_OUT',
     name: 'Fan-Out Structuring',
-    nickname: 'The 16-Way Sprinkler',
-    shapeBadge: '1 → 16 Cone Split',
-    amountHint: '$3,339 → $17,845',
-    icon: 'call_split',
+    shortName: 'Fan-Out',
+    shapeBadge: '1 → 16 Split',
     shortDesc:
-      'One origin account splits funds across 16 beneficiary accounts below reporting thresholds.',
+      'One origin account splits funds across 16 mule accounts below reporting thresholds.',
   },
   {
     num: '03',
     caseId: 'CASE_HI_FAN_IN',
     name: 'Fan-In Smurfing',
-    nickname: 'The Collector Funnel',
+    shortName: 'Fan-In',
     shapeBadge: '22 → 1 Funnel',
-    amountHint: '$3,505 → $8,094',
-    icon: 'call_merge',
     shortDesc:
-      'Multiple unrelated feeder accounts funnel structured deposits into a single collector account.',
+      'Multiple feeder accounts funnel structured deposits into a single collector account.',
   },
   {
     num: '04',
     caseId: 'CASE_HI_SCATTER_GATHER',
     name: 'Scatter-Gather Diamond',
-    nickname: '16-Mule Diamond',
-    shapeBadge: '1 → 13 → 1 Diamond',
-    amountHint: '$15,691 → $19,102',
-    icon: 'diamond',
+    shortName: 'Scatter-Gather',
+    shapeBadge: 'Diamond',
     shortDesc:
-      'Origin scatters wires across intermediary mule accounts that reconverge at one collector.',
+      'One sender scatters wires across mule accounts that reconverge at a single collector.',
   },
   {
     num: '05',
     caseId: 'CASE_HI_GATHER_SCATTER',
     name: 'Gather-Scatter Hub',
-    nickname: 'Clearinghouse Hub',
-    shapeBadge: '44-Hop Hourglass',
-    amountHint: '$9,132 → $9,284',
-    icon: 'hub',
+    shortName: 'Gather-Scatter',
+    shapeBadge: 'Hourglass Hub',
     shortDesc:
       'A central hub aggregates deposits from many senders before dispersing them downstream.',
   },
   {
     num: '06',
     caseId: 'CASE_HI_BIPARTITE',
-    name: 'Bipartite Relay',
-    nickname: 'Two-Layer Conduit',
-    shapeBadge: '2-Layer Wall',
-    amountHint: '$152,868 → $9,496',
-    icon: 'swap_horiz',
+    name: 'Bipartite Layering',
+    shortName: 'Bipartite',
+    shapeBadge: '2-Layer Relay',
     shortDesc:
-      'Upstream feeder accounts wire funds through a parallel layer of pass-through conduits.',
+      'Feeder accounts wire funds through a parallel layer of pass-through conduits.',
   },
   {
     num: '07',
     caseId: 'CASE_HI_STACKED_BIPARTITE',
     name: 'Stacked Bipartite',
-    nickname: 'Multi-Tier Cascade',
+    shortName: 'Stacked',
     shapeBadge: '3-Tier Cascade',
-    amountHint: '$22,443 → $12,598',
-    icon: 'layers',
     shortDesc:
       'Funds cascade sequentially across multiple tiers of intermediate shell accounts.',
   },
   {
     num: '08',
     caseId: 'CASE_HI_RANDOM_WALK_8HOP',
-    name: 'Random Walk Layering',
-    nickname: 'Zig-Zag Escape Trail',
-    shapeBadge: '8-Hop Zig-Zag',
-    amountHint: '$11,811 → $4,919',
-    icon: 'timeline',
+    name: 'Random Walk Chain',
+    shortName: 'Random Walk',
+    shapeBadge: '8-Hop Trail',
     shortDesc:
-      'High-velocity 8-hop chain across 9 accounts that never loops back to the origin.',
+      'High-velocity 8-hop chain across 9 accounts that never loops back to its origin.',
   },
 ];
 
@@ -153,32 +135,28 @@ const BONUS_OWNERSHIP_PATTERNS: readonly PatternMeta[] = [
     num: 'UBO',
     caseId: 'CASE_SEED_UBO_SHELL',
     name: 'UBO Offshore Shell Ring',
-    nickname: 'Hidden Puppet Master',
-    shapeBadge: 'PEP Beneficial Owner',
-    amountHint: '$150,000 → $144,500',
-    icon: 'person_search',
+    shortName: 'UBO Shell Ring',
+    shapeBadge: 'Shared Owner',
     shortDesc:
-      'Two offshore shell companies look unrelated until Spanner joins their shared Beneficial Owner.',
+      'Offshore shell companies look unrelated until Spanner links their shared Beneficial Owner.',
   },
   {
     num: '3-HOP',
     caseId: 'CASE_SEED_CYCLE_3HOP',
     name: 'Offshore 3-Hop Cycle',
-    nickname: 'Cayman-BVI Loop',
-    shapeBadge: '4-Hop Ring',
-    amountHint: '$100,000 → $95,000',
-    icon: 'public',
+    shortName: '3-Hop Offshore',
+    shapeBadge: 'Cayman Loop',
     shortDesc:
       'Rapid round-trip wire loop through Cayman Islands, BVI, and Panama shell accounts.',
   },
 ];
 
 const CHAPTERS = [
-  { id: 1 as const, label: '01 • Bank System', icon: 'blur_on' },
-  { id: 2 as const, label: '02 • 8 AML Patterns', icon: 'grid_view' },
-  { id: 3 as const, label: '03 • Follow the Money', icon: 'flight_takeoff' },
-  { id: 4 as const, label: '04 • Spanner GQL & UBO', icon: 'account_tree' },
-  { id: 5 as const, label: '05 • Block & File SAR', icon: 'shield_lock' },
+  { id: 1 as const, label: '01 Ledger' },
+  { id: 2 as const, label: '02 Patterns' },
+  { id: 3 as const, label: '03 Hops' },
+  { id: 4 as const, label: '04 Spanner GQL' },
+  { id: 5 as const, label: '05 Prevent' },
 ];
 
 export function ScrollytellingStage({
@@ -216,7 +194,9 @@ export function ScrollytellingStage({
   );
   const [activeHopIndex, setActiveHopIndex] = useState<number>(0);
   const [isAutoPlayingHops, setIsAutoPlayingHops] = useState<boolean>(false);
+  const [showGqlCode, setShowGqlCode] = useState<boolean>(false);
   const [copiedGql, setCopiedGql] = useState<boolean>(false);
+  const [actionTab, setActionTab] = useState<'block' | 'sar'>('block');
 
   const scrollProgressRef = useRef<number>(freeOrbitOnly ? 0.28 : 0);
   const lenisRef = useRef<Lenis | null>(null);
@@ -231,6 +211,13 @@ export function ScrollytellingStage({
     setIsAutoPlayingHops(false);
   }, [investigation?.case_id]);
 
+  // Automatically switch to SAR tab when a SAR is generated
+  useEffect(() => {
+    if (activeAlert) {
+      setActionTab('sar');
+    }
+  }, [activeAlert]);
+
   useEffect(() => {
     if (!isAutoPlayingHops || hopCount <= 1) {
       return;
@@ -242,7 +229,6 @@ export function ScrollytellingStage({
     return () => window.clearInterval(timer);
   }, [isAutoPlayingHops, hopCount]);
 
-  // Synchronize window scroll -> scrollProgressRef (0..1), activeChapter, and Chapter 3 hop index
   const syncScroll = useCallback(() => {
     if (freeOrbitOnly) {
       scrollProgressRef.current = 0.28;
@@ -387,8 +373,8 @@ export function ScrollytellingStage({
                 }`}
                 onClick={() => handleSelectPatternById(pat.caseId)}
               >
-                <span>#{pat.num}</span>
-                {pat.name.split(' ')[0]}
+                <span>{pat.num}</span>
+                {pat.shortName}
               </button>
             ))}
             <button
@@ -398,12 +384,6 @@ export function ScrollytellingStage({
               }`}
               onClick={onToggleOwnershipOverlay}
             >
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: 16 }}
-              >
-                person_search
-              </span>
               UBO Layer
             </button>
             <button
@@ -413,18 +393,8 @@ export function ScrollytellingStage({
               }`}
               onClick={onToggleBankOverlay}
             >
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: 16 }}
-              >
-                account_balance
-              </span>
               Bank Layer
             </button>
-          </div>
-          <div className="m3-free-orbit-hud__hint">
-            Drag anywhere in 3D space to orbit • Scroll wheel to zoom • Click any
-            3D sphere or pill to inspect
           </div>
         </div>
       </div>
@@ -433,7 +403,6 @@ export function ScrollytellingStage({
 
   return (
     <div className="m3-scrolly-root">
-      {/* Sticky Full-Screen 3D WebGL Transaction Universe */}
       <TransactionUniverse3D
         universe={universe}
         investigation={investigation}
@@ -448,8 +417,9 @@ export function ScrollytellingStage({
         interactiveOrbit={false}
       />
 
-      {/* Sticky Top Navigation HUD (Hidden on Act 1 Landing Screen for a super-clean entry) */}
-      <div
+      {/* Minimal, Quiet Step Indicator (Hidden on Act 1 Landing) */}
+      <nav
+        aria-label="Story progress"
         className={`m3-scrolly-hud ${
           activeChapter === 1 ? 'm3-scrolly-hud--hidden' : ''
         }`}
@@ -464,43 +434,14 @@ export function ScrollytellingStage({
               }`}
               onClick={() => scrollToChapter(ch.id)}
             >
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: 14 }}
-              >
-                {ch.icon}
-              </span>
-              <span>{ch.label}</span>
+              {ch.label}
             </button>
           ))}
         </div>
+      </nav>
 
-        <div className="m3-scrolly-hud__scenarios">
-          <span className="m3-scrolly-hud__label">8 AML Patterns:</span>
-          {EIGHT_AML_PATTERNS.map((pat) => {
-            const isSelected = pat.caseId === selectedCaseId;
-            return (
-              <button
-                key={pat.caseId}
-                type="button"
-                className={`m3-scenario-chip ${
-                  isSelected ? 'm3-scenario-chip--active' : ''
-                }`}
-                onClick={() => handleSelectPatternById(pat.caseId)}
-              >
-                <strong>
-                  {pat.num}. {pat.name.split(' (')[0]}
-                </strong>
-                <span>{pat.shapeBadge}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Parallax Scroll Track with 5 Clear Storytelling Acts */}
       <div className="m3-scrolly-track">
-        {/* ACT 01: CLEAN LANDING SCREEN — THE LIVE BANKING SYSTEM */}
+        {/* ACT 01: SPACIOUS LANDING SCREEN */}
         <section
           ref={(el) => {
             chapterRefs.current[0] = el;
@@ -508,60 +449,22 @@ export function ScrollytellingStage({
           className="m3-scrolly-section m3-scrolly-section--hero"
         >
           <div className="m3-hero-overlay">
-            <div className="m3-scrolly-eyebrow">
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: 15 }}
-              >
-                account_balance
-              </span>
-              LIVE GLOBAL BANKING SYSTEM • CLOUD SPANNER GRAPH
-            </div>
+            <div className="m3-scrolly-eyebrow">LIVE BANKING LEDGER</div>
 
             <h1 className="m3-hero-headline">
-              You are inside a live bank ledger with{' '}
+              {(health?.accounts_count ?? 761).toLocaleString()} accounts.{' '}
               <span>
-                {(health?.accounts_count ?? 761).toLocaleString()} accounts
-              </span>{' '}
-              and{' '}
-              <span>
-                {(health?.transactions_count ?? 3267).toLocaleString()}{' '}
-                transactions.
+                {(health?.transactions_count ?? 3267).toLocaleString()} wire
+                transfers.
               </span>
             </h1>
 
             <p className="m3-hero-subheadline">
-              Every dot orbiting in 3D space is a bank account across{' '}
-              <strong>
-                {(health?.banks_count ?? 473).toLocaleString()} financial
-                institutions
-              </strong>
-              , and every line is a cross-border wire transfer. Hidden inside
-              this normal banking traffic are{' '}
-              <strong>8 money laundering patterns</strong> moving illicit funds
-              in plain sight.
+              Every point in this 3D space is an account across{' '}
+              <strong>{(health?.banks_count ?? 473).toLocaleString()} banks</strong>
+              —and hidden inside normal traffic are{' '}
+              <strong>8 money laundering rings</strong>.
             </p>
-
-            <div className="m3-landing-stat-strip">
-              <div className="m3-landing-stat">
-                <strong>{(health?.accounts_count ?? 761).toLocaleString()}</strong>
-                <span>Bank Accounts</span>
-              </div>
-              <div className="m3-landing-stat">
-                <strong>{(health?.banks_count ?? 473).toLocaleString()}</strong>
-                <span>Global Banks</span>
-              </div>
-              <div className="m3-landing-stat">
-                <strong>
-                  {(health?.transactions_count ?? 3267).toLocaleString()}
-                </strong>
-                <span>Wire Transfers</span>
-              </div>
-              <div className="m3-landing-stat m3-landing-stat--accent">
-                <strong>8 Patterns</strong>
-                <span>Hidden Laundering Rings</span>
-              </div>
-            </div>
 
             <div className="m3-hero-cta-row">
               <button
@@ -576,14 +479,14 @@ export function ScrollytellingStage({
                   bolt
                 </span>
                 {isLoadingGraph
-                  ? 'Scanning Graph Ledger...'
+                  ? 'Scanning Ledger...'
                   : 'Use Spanner Graph to Catch Money Laundering'}
               </button>
             </div>
           </div>
         </section>
 
-        {/* ACT 02: THE 8 PARADIGMS OF MONEY LAUNDERING & DOLLAR AMOUNTS */}
+        {/* ACT 02: THE 8 LAUNDERING PATTERNS & AMOUNTS */}
         <section
           ref={(el) => {
             chapterRefs.current[1] = el;
@@ -591,29 +494,15 @@ export function ScrollytellingStage({
           className="m3-scrolly-section"
         >
           <div className="m3-scrolly-card m3-scrolly-card--wide">
-            <div className="m3-scrolly-eyebrow">
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: 15 }}
-              >
-                grid_view
-              </span>
-              ACT 02 • THE 8 PARADIGMS OF MONEY LAUNDERING
-            </div>
-            <h2 className="m3-scrolly-h2">
-              {activePatternMeta.num}. {activePatternMeta.name}
-            </h2>
-            <p className="m3-scrolly-body">
-              {investigation?.demo_guide?.plain_english ??
-                activePatternMeta.shortDesc}
-            </p>
+            <div className="m3-scrolly-eyebrow">01 • 8 LAUNDERING PATTERNS</div>
+            <h2 className="m3-scrolly-h2">{activePatternMeta.name}</h2>
+            <p className="m3-scrolly-body">{activePatternMeta.shortDesc}</p>
 
-            {/* Clear Dollar Amount & Velocity Summary Bar */}
             {investigation && (
               <div className="m3-amount-flow-banner">
-                <div className="m3-amount-flow-banner__step">
-                  <span>First Hop Wire</span>
-                  <strong>
+                <div className="m3-amount-flow-banner__item">
+                  <span>First Wire</span>
+                  <strong className="mono-num">
                     $
                     {investigation.evidence.initial_amount.toLocaleString(
                       undefined,
@@ -621,12 +510,10 @@ export function ScrollytellingStage({
                     )}
                   </strong>
                 </div>
-                <span className="material-symbols-outlined m3-amount-flow-banner__arrow">
-                  trending_flat
-                </span>
-                <div className="m3-amount-flow-banner__step">
-                  <span>Total Volume Moved</span>
-                  <strong>
+                <span className="m3-amount-flow-banner__arrow">→</span>
+                <div className="m3-amount-flow-banner__item m3-amount-flow-banner__item--highlight">
+                  <span>Total Moved</span>
+                  <strong className="mono-num">
                     $
                     {totalVolumeUsd.toLocaleString(undefined, {
                       maximumFractionDigits: 0,
@@ -634,15 +521,13 @@ export function ScrollytellingStage({
                   </strong>
                   <small>
                     {investigation.evidence.hop_count} hops •{' '}
-                    {uniqueAccountsCount} accounts
+                    {uniqueAccountsCount} accts
                   </small>
                 </div>
-                <span className="material-symbols-outlined m3-amount-flow-banner__arrow">
-                  trending_flat
-                </span>
-                <div className="m3-amount-flow-banner__step m3-amount-flow-banner__step--highlight">
-                  <span>Final Hop Wire</span>
-                  <strong>
+                <span className="m3-amount-flow-banner__arrow">→</span>
+                <div className="m3-amount-flow-banner__item">
+                  <span>Final Wire</span>
+                  <strong className="mono-num">
                     $
                     {investigation.evidence.final_amount.toLocaleString(
                       undefined,
@@ -650,19 +535,12 @@ export function ScrollytellingStage({
                     )}
                   </strong>
                   <small>
-                    Caught in {investigation.evidence.query_latency_ms.toFixed(0)}{' '}
-                    ms
+                    {investigation.evidence.query_latency_ms.toFixed(0)} ms
                   </small>
                 </div>
               </div>
             )}
 
-            <div className="m3-code-caption" style={{ marginTop: 12 }}>
-              Click any of the 8 canonical AML patterns below to morph the 3D
-              graph on the right:
-            </div>
-
-            {/* Interactive 8-Pattern Grid */}
             <div className="m3-pattern-grid-8">
               {EIGHT_AML_PATTERNS.map((pat) => {
                 const isSelected = pat.caseId === selectedCaseId;
@@ -676,31 +554,28 @@ export function ScrollytellingStage({
                     onClick={() => handleSelectPatternById(pat.caseId)}
                   >
                     <div className="m3-pattern-card__top">
-                      <span className="m3-pattern-card__num">#{pat.num}</span>
+                      <span className="m3-pattern-card__badge">{pat.num}</span>
                       <span className="m3-pattern-card__shape">
                         {pat.shapeBadge}
                       </span>
                     </div>
-                    <div className="m3-pattern-card__title">{pat.name}</div>
-                    <div className="m3-pattern-card__sub">
-                      “{pat.nickname}” • <strong>{pat.amountHint}</strong>
+                    <div className="m3-pattern-card__title">
+                      {pat.shortName}
                     </div>
                   </button>
                 );
               })}
             </div>
 
-            {/* Bonus Corporate Ownership Patterns */}
             <div
               style={{
                 display: 'flex',
-                gap: 8,
+                gap: 6,
                 flexWrap: 'wrap',
-                marginTop: 10,
+                marginTop: 8,
                 alignItems: 'center',
               }}
             >
-              <span className="m3-mono-muted">Corporate Ownership Rings:</span>
               {BONUS_OWNERSHIP_PATTERNS.map((pat) => (
                 <button
                   key={pat.caseId}
@@ -712,68 +587,50 @@ export function ScrollytellingStage({
                   }`}
                   onClick={() => handleSelectPatternById(pat.caseId)}
                 >
-                  <span
-                    className="material-symbols-outlined"
-                    style={{ fontSize: 14 }}
-                  >
-                    {pat.icon}
-                  </span>
-                  {pat.name} ({pat.amountHint})
+                  {pat.shortName}
                 </button>
               ))}
-            </div>
-
-            <div className="m3-scrolly-actions" style={{ marginTop: 14 }}>
-              <button
-                type="button"
-                className="m3-btn m3-btn--filled"
-                onClick={() => scrollToChapter(3)}
-              >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontSize: 18 }}
-                >
-                  flight_takeoff
-                </span>
-                Follow the Money Hop-by-Hop →
-              </button>
             </div>
           </div>
         </section>
 
-        {/* ACT 03: FOLLOW THE MONEY STEP-BY-STEP IN 3D */}
+        {/* ACT 03: FOLLOW THE MONEY HOP-BY-HOP */}
         <section
           ref={(el) => {
             chapterRefs.current[2] = el;
           }}
-          className="m3-scrolly-section m3-scrolly-section--tall"
+          className="m3-scrolly-section"
         >
           <div className="m3-scrolly-card">
-            <div className="m3-scrolly-eyebrow">
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: 15 }}
-              >
-                flight_takeoff
-              </span>
-              ACT 03 • FOLLOW THE MONEY STEP-BY-STEP
-            </div>
+            <div className="m3-scrolly-eyebrow">02 • FOLLOW THE MONEY</div>
             <h2 className="m3-scrolly-h2">
-              Wire Hop #{activeHopIndex + 1} of {Math.max(hopCount, 1)}
+              Hop {activeHopIndex + 1} of {Math.max(hopCount, 1)}
             </h2>
             <p className="m3-scrolly-body">
-              Watch the gold packet travel along the 3D conduit on the right.
-              Each hop occurs strictly after the previous wire settled, proving a
-              coordinated laundering sequence.
+              Step through the wire trail—each transfer settles strictly after
+              the previous hop.
             </p>
+
+            {/* Clean Progress Bar + Playback Controls */}
+            <div className="m3-hop-progress-track">
+              <div
+                className="m3-hop-progress-fill"
+                style={{
+                  width: `${
+                    hopCount > 0
+                      ? ((activeHopIndex + 1) / hopCount) * 100
+                      : 100
+                  }%`,
+                }}
+              />
+            </div>
 
             <div
               style={{
                 display: 'flex',
                 gap: 8,
                 alignItems: 'center',
-                flexWrap: 'wrap',
-                marginBottom: 12,
+                marginBottom: 16,
               }}
             >
               <button
@@ -781,7 +638,7 @@ export function ScrollytellingStage({
                 className={`m3-btn ${
                   isAutoPlayingHops ? 'm3-btn--tonal' : 'm3-btn--filled'
                 }`}
-                style={{ padding: '7px 14px', fontSize: '0.76rem' }}
+                style={{ padding: '7px 14px', fontSize: '0.78rem' }}
                 onClick={() => setIsAutoPlayingHops((prev) => !prev)}
               >
                 <span
@@ -790,24 +647,24 @@ export function ScrollytellingStage({
                 >
                   {isAutoPlayingHops ? 'pause' : 'play_arrow'}
                 </span>
-                {isAutoPlayingHops ? 'Pause Tour' : 'Auto-Play Hops'}
+                {isAutoPlayingHops ? 'Pause' : 'Auto-Play'}
               </button>
               <button
                 type="button"
                 className="m3-btn m3-btn--outlined"
-                style={{ padding: '7px 12px', fontSize: '0.76rem' }}
+                style={{ padding: '7px 12px', fontSize: '0.78rem' }}
                 disabled={activeHopIndex <= 0}
                 onClick={() => {
                   setIsAutoPlayingHops(false);
                   handleManualSelectHop(Math.max(0, activeHopIndex - 1));
                 }}
               >
-                Prev
+                ← Prev
               </button>
               <button
                 type="button"
                 className="m3-btn m3-btn--outlined"
-                style={{ padding: '7px 12px', fontSize: '0.76rem' }}
+                style={{ padding: '7px 12px', fontSize: '0.78rem' }}
                 onClick={() => {
                   setIsAutoPlayingHops(false);
                   handleManualSelectHop(
@@ -815,46 +672,13 @@ export function ScrollytellingStage({
                   );
                 }}
               >
-                Next Hop →
+                Next →
               </button>
-            </div>
-
-            <div className="m3-hop-pill-grid" data-lenis-prevent>
-              {hops.map((hop, idx) => (
-                <button
-                  key={`${hop.transaction_id}-${idx}`}
-                  type="button"
-                  className={`m3-hop-pill ${
-                    idx === activeHopIndex ? 'm3-hop-pill--active' : ''
-                  }`}
-                  onClick={() => {
-                    setIsAutoPlayingHops(false);
-                    handleManualSelectHop(idx);
-                  }}
-                >
-                  <span>#{hop.hop_index}</span>
-                  <strong>
-                    $
-                    {hop.amount_paid.toLocaleString(undefined, {
-                      maximumFractionDigits: 0,
-                    })}
-                  </strong>
-                </button>
-              ))}
             </div>
 
             {currentHop && (
               <div className="m3-hop-spotlight-card">
-                <div className="m3-hop-spotlight-card__header">
-                  <span className="m3-badge m3-badge--amber">
-                    ACTIVE WIRE • HOP #{currentHop.hop_index}
-                  </span>
-                  <span className="m3-mono-muted">
-                    TX: {currentHop.transaction_id}
-                  </span>
-                </div>
-
-                <div className="m3-hop-spotlight-card__amount">
+                <div className="m3-hop-spotlight-card__amount mono-num">
                   $
                   {currentHop.amount_paid.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
@@ -867,7 +691,7 @@ export function ScrollytellingStage({
 
                 <div className="m3-hop-spotlight-card__route">
                   <div>
-                    <small>SENDER ACCOUNT</small>
+                    <small>SENDER</small>
                     <strong>
                       {investigation?.kyc_profiles[currentHop.from_account_id]
                         ?.entity_name ?? currentHop.from_account_id}
@@ -876,12 +700,12 @@ export function ScrollytellingStage({
                   </div>
                   <span
                     className="material-symbols-outlined"
-                    style={{ color: '#38bdf8', fontSize: 22 }}
+                    style={{ color: '#38bdf8', fontSize: 20 }}
                   >
-                    trending_flat
+                    arrow_forward
                   </span>
                   <div>
-                    <small>RECEIVER ACCOUNT</small>
+                    <small>RECEIVER</small>
                     <strong>
                       {investigation?.kyc_profiles[currentHop.to_account_id]
                         ?.entity_name ?? currentHop.to_account_id}
@@ -891,62 +715,47 @@ export function ScrollytellingStage({
                 </div>
 
                 <div className="m3-mono-muted" style={{ marginTop: 10 }}>
-                  Settled:{' '}
                   {currentHop.event_timestamp
                     .replace('T', ' ')
                     .replace('+00:00', ' UTC')}
                 </div>
               </div>
             )}
-
-            <div className="m3-scrolly-actions" style={{ marginTop: 14 }}>
-              <button
-                type="button"
-                className="m3-btn m3-btn--tonal"
-                onClick={() => scrollToChapter(4)}
-              >
-                See How Spanner Graph Catches It →
-              </button>
-            </div>
           </div>
         </section>
 
-        {/* ACT 04: HOW SPANNER GRAPH CATCHES IT (PLAIN ENGLISH + SCROLLABLE GQL + UBO) */}
+        {/* ACT 04: WHY SQL FAILS & SPANNER GRAPH GQL */}
         <section
           ref={(el) => {
             chapterRefs.current[3] = el;
           }}
           className="m3-scrolly-section"
         >
-          <div className="m3-scrolly-card m3-scrolly-card--wide">
-            <div className="m3-scrolly-eyebrow">
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: 15 }}
-              >
-                account_tree
-              </span>
-              ACT 04 • WHY SQL FAILS & HOW SPANNER GRAPH WORKS
-            </div>
+          <div className="m3-scrolly-card">
+            <div className="m3-scrolly-eyebrow">03 • WHY SPANNER GRAPH</div>
             <h2 className="m3-scrolly-h2">
-              1 Graph Traversal vs. 10 Relational SQL Joins
+              1 Graph Traversal vs. 10 SQL Joins
             </h2>
+            <p className="m3-scrolly-body">
+              Spanner queries multi-hop paths and beneficial owners directly on
+              the live operational ledger—with zero ETL delay.
+            </p>
 
             <div className="m3-sql-vs-gql-grid">
               <div className="m3-sql-vs-gql-box m3-sql-vs-gql-box--bad">
-                <strong>Legacy Relational SQL</strong>
-                <p>
-                  Tracing 10 hops requires <code>10 SELF-JOINs</code> on the
-                  Transactions table plus batch ETL to a separate graph DB—taking
-                  hours after the money is gone.
-                </p>
+                <span>Legacy SQL</span>
+                <strong>10 SELF-JOINs</strong>
+                <small>Hours of batch ETL after funds vanish</small>
               </div>
               <div className="m3-sql-vs-gql-box m3-sql-vs-gql-box--good">
-                <strong>Cloud Spanner Property Graph</strong>
-                <p>
-                  {investigation?.demo_guide?.why_spanner_wins ??
-                    'Follows -[e:TRANSFERRED_TO]->{2,12} and :OWNS/:CONTROLS edges directly on the live transactional ledger in ~120ms.'}
-                </p>
+                <span>Spanner Graph</span>
+                <strong>1 GQL Path</strong>
+                <small>
+                  {investigation
+                    ? `${investigation.evidence.query_latency_ms.toFixed(0)} ms`
+                    : '~120 ms'}{' '}
+                  on live ledger
+                </small>
               </div>
             </div>
 
@@ -955,7 +764,7 @@ export function ScrollytellingStage({
                 display: 'flex',
                 gap: 8,
                 flexWrap: 'wrap',
-                marginBottom: 12,
+                marginBottom: 14,
               }}
             >
               <button
@@ -971,7 +780,7 @@ export function ScrollytellingStage({
                 >
                   person_search
                 </span>
-                Show Beneficial Owners (UBO) Above Graph
+                UBO Owners
               </button>
               <button
                 type="button"
@@ -986,8 +795,25 @@ export function ScrollytellingStage({
                 >
                   account_balance
                 </span>
-                Show Banks Below Graph
+                Banks
               </button>
+              {investigation?.demo_guide?.gql_query && (
+                <button
+                  type="button"
+                  className={`m3-filter-chip ${
+                    showGqlCode ? 'm3-filter-chip--active' : ''
+                  }`}
+                  onClick={() => setShowGqlCode((prev) => !prev)}
+                >
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ fontSize: 16 }}
+                  >
+                    code
+                  </span>
+                  {showGqlCode ? 'Hide GQL Query' : 'View Live GQL Query'}
+                </button>
+              )}
             </div>
 
             {selectedAccountProfile && (
@@ -1000,9 +826,9 @@ export function ScrollytellingStage({
                     marginBottom: 4,
                   }}
                 >
-                  <span className="m3-code-caption" style={{ marginBottom: 0 }}>
-                    Inspected 3D Node • {selectedAccountProfile.entity_name}
-                  </span>
+                  <strong style={{ fontSize: '0.82rem', color: '#f8fafc' }}>
+                    {selectedAccountProfile.entity_name}
+                  </strong>
                   <span
                     className={`m3-badge ${
                       selectedAccountProfile.is_pep_or_sanctioned
@@ -1016,18 +842,16 @@ export function ScrollytellingStage({
                   </span>
                 </div>
                 <div className="m3-mono-muted">
-                  Acct: {selectedAccountProfile.account_id} • Bank:{' '}
                   {selectedAccountProfile.bank_name} (
                   {selectedAccountProfile.bank_jurisdiction}) • UBO:{' '}
                   <strong style={{ color: '#c084fc' }}>
-                    {selectedAccountProfile.ubo_entity_name ??
-                      'Direct Corporate Holder'}
+                    {selectedAccountProfile.ubo_entity_name ?? 'Direct Holder'}
                   </strong>
                 </div>
               </div>
             )}
 
-            {investigation?.demo_guide?.gql_query && (
+            {showGqlCode && investigation?.demo_guide?.gql_query && (
               <div>
                 <div
                   style={{
@@ -1038,15 +862,15 @@ export function ScrollytellingStage({
                   }}
                 >
                   <span className="m3-code-caption" style={{ marginBottom: 0 }}>
-                    Live ISO GQL Executed on Cloud Spanner (Scrollable)
+                    ISO GQL Query
                   </span>
                   <button
                     type="button"
                     className="m3-filter-chip"
-                    style={{ padding: '3px 10px', fontSize: '0.7rem' }}
+                    style={{ padding: '2px 9px', fontSize: '0.68rem' }}
                     onClick={handleCopyGql}
                   >
-                    {copiedGql ? '✓ Copied' : 'Copy GQL'}
+                    {copiedGql ? '✓ Copied' : 'Copy'}
                   </button>
                 </div>
                 <pre
@@ -1058,20 +882,10 @@ export function ScrollytellingStage({
                 </pre>
               </div>
             )}
-
-            <div className="m3-scrolly-actions" style={{ marginTop: 14 }}>
-              <button
-                type="button"
-                className="m3-btn m3-btn--filled"
-                onClick={() => scrollToChapter(5)}
-              >
-                Block the Wire & Generate FinCEN SAR →
-              </button>
-            </div>
           </div>
         </section>
 
-        {/* ACT 05: REAL-TIME PRE-SETTLEMENT GATE & GEMINI SAR */}
+        {/* ACT 05: REAL-TIME PREVENTION (DYNAMIC 2-TAB FLOW) */}
         <section
           ref={(el) => {
             chapterRefs.current[4] = el;
@@ -1079,186 +893,148 @@ export function ScrollytellingStage({
           className="m3-scrolly-section"
         >
           <div className="m3-scrolly-card">
-            <div className="m3-scrolly-eyebrow">
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: 15 }}
-              >
-                shield_lock
-              </span>
-              ACT 05 • REAL-TIME INTERCEPTION & GEMINI FINCEN SAR
-            </div>
-            <h2 className="m3-scrolly-h2">
-              Block the Wire in &lt;150ms & File the FinCEN SAR
-            </h2>
+            <div className="m3-scrolly-eyebrow">04 • REAL-TIME PREVENTION</div>
+            <h2 className="m3-scrolly-h2">Block in &lt;150ms. File 1 SAR.</h2>
             <p className="m3-scrolly-body">
-              Because Cloud Spanner is the live operational ledger (zero overnight
-              ETL), it blocks ring-closing wires before settlement and invokes
-              Vertex AI Gemini <strong>only on the single escalated case</strong>.
+              Intercept ring-closing wires before settlement, then draft a
+              grounded FinCEN report with Vertex AI Gemini.
             </p>
 
-            {/* 1. Live Pre-Settlement Gate */}
-            <div className="m3-card" style={{ padding: 14, marginBottom: 14 }}>
-              <div
-                style={{
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  color: '#f8fafc',
-                  marginBottom: 8,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-              >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontSize: 18, color: '#f43f5e' }}
-                >
-                  gpp_maybe
-                </span>
-                1. Test Pre-Settlement Wire Interception
-              </div>
-
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr 96px',
-                  gap: 8,
-                  marginBottom: 10,
-                }}
-              >
-                <input
-                  className="m3-input"
-                  value={interceptSender}
-                  onChange={(e) => onChangeInterceptSender(e.target.value)}
-                  placeholder="Sender"
-                />
-                <input
-                  className="m3-input"
-                  value={interceptReceiver}
-                  onChange={(e) => onChangeInterceptReceiver(e.target.value)}
-                  placeholder="Receiver"
-                />
-                <input
-                  className="m3-input"
-                  type="number"
-                  value={interceptAmount}
-                  onChange={(e) => onChangeInterceptAmount(e.target.value)}
-                  placeholder="USD"
-                />
-              </div>
-
+            {/* Clean 2-Tab Switcher so only one tool is shown at a time */}
+            <div className="m3-action-tabs">
               <button
                 type="button"
-                className="m3-btn m3-btn--tonal"
-                style={{ width: '100%' }}
-                disabled={isIntercepting}
-                onClick={onSimulateIntercept}
+                className={`m3-action-tab ${
+                  actionTab === 'block' ? 'm3-action-tab--active' : ''
+                }`}
+                onClick={() => setActionTab('block')}
               >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontSize: 18 }}
-                >
-                  shield
-                </span>
-                {isIntercepting
-                  ? 'Evaluating 3D Path...'
-                  : 'Simulate Wire & Block in 3D Space'}
+                1. Block Wire
               </button>
-
-              {interceptResult && (
-                <div
-                  className={`m3-card ${
-                    interceptResult.decision === 'HELD' ||
-                    interceptResult.decision === 'BLOCK_HOLD_COMPLIANCE'
-                      ? 'm3-card--tonal-error'
-                      : 'm3-card--tonal-primary'
-                  }`}
-                  style={{ marginTop: 10, padding: 10, fontSize: '0.78rem' }}
-                >
-                  <strong>Decision: {interceptResult.decision}</strong> •{' '}
-                  {interceptResult.latency_ms.toFixed(1)} ms Spanner check •{' '}
-                  {interceptResult.matched_rings.length} upstream cycle(s) matched.
-                </div>
-              )}
+              <button
+                type="button"
+                className={`m3-action-tab ${
+                  actionTab === 'sar' ? 'm3-action-tab--active' : ''
+                }`}
+                onClick={() => setActionTab('sar')}
+              >
+                2. Draft Gemini SAR
+              </button>
             </div>
 
-            {/* 2. Single-Ticket Gemini FinCEN SAR */}
-            <div className="m3-card" style={{ padding: 14 }}>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: 8,
-                }}
-              >
-                <span
+            {actionTab === 'block' ? (
+              <div className="m3-card" style={{ padding: 14 }}>
+                <div
                   style={{
-                    fontSize: '0.8rem',
-                    fontWeight: 700,
-                    color: '#f8fafc',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr 88px',
+                    gap: 8,
+                    marginBottom: 10,
                   }}
+                >
+                  <input
+                    className="m3-input"
+                    value={interceptSender}
+                    onChange={(e) => onChangeInterceptSender(e.target.value)}
+                    placeholder="Sender"
+                  />
+                  <input
+                    className="m3-input"
+                    value={interceptReceiver}
+                    onChange={(e) => onChangeInterceptReceiver(e.target.value)}
+                    placeholder="Receiver"
+                  />
+                  <input
+                    className="m3-input"
+                    type="number"
+                    value={interceptAmount}
+                    onChange={(e) => onChangeInterceptAmount(e.target.value)}
+                    placeholder="USD"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  className="m3-btn m3-btn--filled"
+                  style={{ width: '100%' }}
+                  disabled={isIntercepting}
+                  onClick={onSimulateIntercept}
                 >
                   <span
                     className="material-symbols-outlined"
-                    style={{ fontSize: 18, color: '#38bdf8' }}
+                    style={{ fontSize: 18 }}
+                  >
+                    shield
+                  </span>
+                  {isIntercepting
+                    ? 'Checking Ledger...'
+                    : 'Simulate & Block Wire'}
+                </button>
+
+                {interceptResult && (
+                  <div
+                    className={`m3-card ${
+                      interceptResult.decision === 'HELD' ||
+                      interceptResult.decision === 'BLOCK_HOLD_COMPLIANCE'
+                        ? 'm3-card--tonal-error'
+                        : 'm3-card--tonal-primary'
+                    }`}
+                    style={{ marginTop: 10, padding: 10, fontSize: '0.78rem' }}
+                  >
+                    <strong>{interceptResult.decision}</strong> •{' '}
+                    {interceptResult.latency_ms.toFixed(1)} ms •{' '}
+                    {interceptResult.matched_rings.length} cycle(s) matched
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="m3-card" style={{ padding: 14 }}>
+                <button
+                  type="button"
+                  className="m3-btn m3-btn--filled"
+                  style={{ width: '100%' }}
+                  disabled={!investigation || isGeneratingSar}
+                  onClick={onDraftSingleTicketSar}
+                >
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ fontSize: 18 }}
                   >
                     auto_awesome
                   </span>
-                  2. Single-Ticket Vertex AI Gemini SAR
-                </span>
-                <span className="m3-badge m3-badge--green">$0 Bulk Cost</span>
+                  {isGeneratingSar
+                    ? 'Drafting FinCEN SAR...'
+                    : 'Draft FinCEN SAR with Gemini'}
+                </button>
+
+                {activeAlert && (
+                  <div style={{ marginTop: 12 }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        marginBottom: 6,
+                      }}
+                    >
+                      <span className="m3-badge m3-badge--green">
+                        Verified Grounded Citations
+                      </span>
+                      <span className="m3-badge m3-badge--blue">
+                        {activeAlert.alert_id}
+                      </span>
+                    </div>
+                    <div
+                      className="m3-sar-narrative"
+                      data-lenis-prevent
+                      onWheel={(e) => e.stopPropagation()}
+                      style={{ maxHeight: 210, overflowY: 'auto' }}
+                    >
+                      {activeAlert.sar_narrative}
+                    </div>
+                  </div>
+                )}
               </div>
-
-              <button
-                type="button"
-                className="m3-btn m3-btn--filled"
-                style={{ width: '100%' }}
-                disabled={!investigation || isGeneratingSar}
-                onClick={onDraftSingleTicketSar}
-              >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontSize: 18 }}
-                >
-                  description
-                </span>
-                {isGeneratingSar
-                  ? 'Drafting Grounded FinCEN SAR...'
-                  : 'Draft FinCEN SAR with Gemini (1 Ticket)'}
-              </button>
-
-              {activeAlert && (
-                <div style={{ marginTop: 12 }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      marginBottom: 6,
-                    }}
-                  >
-                    <span className="m3-badge m3-badge--green">
-                      Citations Verified: {String(activeAlert.citations_verified)}
-                    </span>
-                    <span className="m3-badge m3-badge--blue">
-                      {activeAlert.alert_id}
-                    </span>
-                  </div>
-                  <div
-                    className="m3-sar-narrative"
-                    data-lenis-prevent
-                    onWheel={(e) => e.stopPropagation()}
-                    style={{ maxHeight: 220, overflowY: 'auto' }}
-                  >
-                    {activeAlert.sar_narrative}
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </section>
       </div>

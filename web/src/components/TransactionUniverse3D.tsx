@@ -103,6 +103,8 @@ export function TransactionUniverse3D({
   showBankRef.current = showBankOverlay;
   const interactiveOrbitRef = useRef(interactiveOrbit);
   interactiveOrbitRef.current = interactiveOrbit;
+  const selectedNodeIdRef = useRef(selectedNodeId);
+  selectedNodeIdRef.current = selectedNodeId;
   const onSelectNodeIdRef = useRef(onSelectNodeId);
   onSelectNodeIdRef.current = onSelectNodeId;
 
@@ -513,19 +515,20 @@ export function TransactionUniverse3D({
             return;
           }
 
+          const isSelected = selectedNodeIdRef.current === bundle.node.id;
           const isHopEndpoint =
             curChapter === 3 &&
             activeEdge &&
             (activeEdge.fromId === bundle.node.id ||
               activeEdge.toId === bundle.node.id);
 
-          // Keep labels clean and uncluttered
+          // Dynamic, low-noise 3D callouts:
+          // - Chapter 3: ONLY the 2 endpoints of the active wire hop (or clicked node)
+          // - Chapters 2, 4, 5: ONLY the Origin/Anchor account (or clicked node)
           const shouldDisplay =
-            bundle.node.isAnchor ||
-            bundle.node.isHighRisk ||
-            isHopEndpoint ||
-            curData.ringNodes.length <= 6 ||
-            idx % 2 === 0;
+            curChapter === 3
+              ? Boolean(isHopEndpoint || isSelected)
+              : Boolean(bundle.node.isAnchor || isSelected);
 
           if (!shouldDisplay) {
             el.style.opacity = '0';
@@ -864,10 +867,18 @@ export function TransactionUniverse3D({
                 }}
               />
               <span className="m3-node3d-pill__text">
-                <strong>{node.label}</strong>
-                <small>
-                  {node.sublabel} • {node.jurisdiction}
-                </small>
+                <strong>
+                  {activeChapter === 3 && activeEdge?.fromId === node.id
+                    ? `Sender • ${node.label}`
+                    : activeChapter === 3 && activeEdge?.toId === node.id
+                      ? `Receiver • ${node.label}`
+                      : node.isAnchor
+                        ? `Origin • ${node.label}`
+                        : node.label}
+                </strong>
+                {(isSelected || isHopEndpoint) && (
+                  <small>{node.jurisdiction}</small>
+                )}
               </span>
             </button>
           );
