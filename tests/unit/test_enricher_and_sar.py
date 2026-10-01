@@ -234,7 +234,6 @@ def test_settlement_interceptor_holds_non_cyclic_laundering_trail():
     # First call: GQL_PRE_SETTLEMENT_CYCLE_CHECK returns empty (non-cyclic pattern)
     # Second call: GQL_PRE_SETTLEMENT_TRAIL_CHECK returns a 2-hop laundering path ending at ACC_MULE -> ACC_PAYOUT
     mock_snapshot.execute_sql.side_effect = [
-        [],
         [
             (
                 [

@@ -226,7 +226,7 @@ WHERE entity_id IN UNNEST(@ubo_ids)
 
 GQL_PRE_SETTLEMENT_TRAIL_CHECK = """
 GRAPH AmlGraph
-MATCH p = (sender:Account {account_id: @from_account_id})-[e:TRANSFERRED_TO WHERE e.is_laundering = true]->(receiver:Account {account_id: @to_account_id})
+MATCH p = (sender:Account {account_id: @from_account_id})-[e:TRANSFERRED_TO]->(receiver:Account {account_id: @to_account_id})
 RETURN SAFE.TO_JSON(p) AS laundering_path,
        1 AS total_hops
 LIMIT 1
