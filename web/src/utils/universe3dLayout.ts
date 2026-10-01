@@ -17,7 +17,8 @@ export interface RingNode3D {
   readonly label: string;
   readonly sublabel: string;
   readonly jurisdiction: string;
-  readonly position: Vec3;
+  readonly cloudPosition: Vec3;
+  readonly ringPosition: Vec3;
   readonly colorHex: number;
   readonly badgeColor: string;
   readonly radius: number;
@@ -29,6 +30,8 @@ export interface RingNode3D {
 export interface RingEdge3D {
   readonly id: string;
   readonly hop: TransferHop;
+  readonly fromId: string;
+  readonly toId: string;
   readonly fromPos: Vec3;
   readonly toPos: Vec3;
   readonly controlPos: Vec3;
@@ -74,6 +77,20 @@ function deterministicUnit(seed: string, salt: number): number {
   return (h % 10000) / 10000;
 }
 
+function computeCloudScatterPosition(id: string, index: number): Vec3 {
+  const u1 = deterministicUnit(id, 11 + index);
+  const u2 = deterministicUnit(id, 29 + index);
+  const u3 = deterministicUnit(id, 47 + index);
+  const theta = u1 * Math.PI * 2;
+  const phi = Math.acos(2 * u2 - 1);
+  const radius = 32 + u3 * 46;
+  return {
+    x: radius * Math.sin(phi) * Math.cos(theta),
+    y: radius * Math.cos(phi) * 0.65,
+    z: radius * Math.sin(phi) * Math.sin(theta),
+  };
+}
+
 function computeAccountPositions3D(
   investigation: EnrichedCaseInvestigation
 ): ReadonlyMap<string, Vec3> {
@@ -88,14 +105,14 @@ function computeAccountPositions3D(
       hops[hops.length - 1]?.to_account_id ?? accounts[accounts.length - 1];
     const mules = accounts.filter((a) => a !== originId && a !== sinkId);
 
-    map.set(originId, { x: -32, y: 2, z: 0 });
-    map.set(sinkId, { x: 32, y: -2, z: 0 });
+    map.set(originId, { x: -26, y: 2, z: 0 });
+    map.set(sinkId, { x: 26, y: -2, z: 0 });
 
     mules.forEach((accId, idx) => {
       const angle = (2 * Math.PI * idx) / Math.max(mules.length, 1);
-      const ringRadius = 18;
+      const ringRadius = 15.5;
       map.set(accId, {
-        x: Math.sin(angle * 2) * 4,
+        x: Math.sin(angle * 2) * 3.5,
         y: Math.cos(angle) * ringRadius,
         z: Math.sin(angle) * ringRadius,
       });
@@ -109,19 +126,19 @@ function computeAccountPositions3D(
       const t = count > 1 ? idx / (count - 1) - 0.5 : 0;
       const waveAngle = idx * 0.95;
       map.set(accId, {
-        x: t * 58,
-        y: Math.sin(waveAngle) * 10,
-        z: Math.cos(waveAngle) * 14,
+        x: t * 48,
+        y: Math.sin(waveAngle) * 8.5,
+        z: Math.cos(waveAngle) * 11.5,
       });
     });
     return map;
   }
 
   const count = Math.max(accounts.length, 1);
-  const radius = count <= 4 ? 19 : 26;
+  const radius = count <= 4 ? 16 : 22;
   accounts.forEach((accId, idx) => {
     const angle = (2 * Math.PI * idx) / count - Math.PI / 2;
-    const elevation = Math.sin(angle * 2) * 4.2;
+    const elevation = Math.sin(angle * 2) * 3.6;
     map.set(accId, {
       x: Math.cos(angle) * radius,
       y: elevation,
@@ -149,8 +166,9 @@ export function buildUniverse3DSceneData(
     const posMap = computeAccountPositions3D(investigation);
     const anchorId = investigation.evidence.account_ids[0] ?? '';
 
-    investigation.evidence.account_ids.forEach((accId) => {
-      const pos = posMap.get(accId) ?? { x: 0, y: 0, z: 0 };
+    investigation.evidence.account_ids.forEach((accId, idx) => {
+      const ringPos = posMap.get(accId) ?? { x: 0, y: 0, z: 0 };
+      const cloudPos = computeCloudScatterPosition(accId, idx);
       const profile = investigation.kyc_profiles[accId];
       const isAnchor = accId === anchorId;
       const isHighRisk = Boolean(
@@ -161,15 +179,15 @@ export function buildUniverse3DSceneData(
       );
 
       const colorHex = isAnchor
-        ? 0x0b57d0
+        ? 0x38bdf8
         : isHighRisk
-          ? 0xd93025
-          : 0x0284c7;
+          ? 0xf43f5e
+          : 0x6366f1;
       const badgeColor = isAnchor
-        ? '#0b57d0'
+        ? '#38bdf8'
         : isHighRisk
-          ? '#b3261e'
-          : '#00639b';
+          ? '#f43f5e'
+          : '#818cf8';
 
       ringNodes.push({
         id: accId,
@@ -177,10 +195,11 @@ export function buildUniverse3DSceneData(
         label: profile?.entity_name ?? accId,
         sublabel: accId,
         jurisdiction: profile?.bank_jurisdiction ?? 'US',
-        position: pos,
+        cloudPosition: cloudPos,
+        ringPosition: ringPos,
         colorHex,
         badgeColor,
-        radius: isAnchor ? 2.2 : 1.65,
+        radius: isAnchor ? 1.85 : 1.35,
         isAnchor,
         isHighRisk,
         profile,
@@ -191,16 +210,18 @@ export function buildUniverse3DSceneData(
       const fromPos = posMap.get(hop.from_account_id) ?? { x: -10, y: 0, z: 0 };
       const toPos = posMap.get(hop.to_account_id) ?? { x: 10, y: 0, z: 0 };
       const midX = (fromPos.x + toPos.x) / 2;
-      const midY = (fromPos.y + toPos.y) / 2 + 5.2 + (idx % 3) * 1.6;
-      const midZ = (fromPos.z + toPos.z) / 2 + (idx % 2 === 0 ? 3.2 : -3.2);
+      const midY = (fromPos.y + toPos.y) / 2 + 4.2 + (idx % 3) * 1.4;
+      const midZ = (fromPos.z + toPos.z) / 2 + (idx % 2 === 0 ? 2.6 : -2.6);
 
       ringEdges.push({
         id: `${hop.transaction_id}:${idx}`,
         hop,
+        fromId: hop.from_account_id,
+        toId: hop.to_account_id,
         fromPos,
         toPos,
         controlPos: { x: midX, y: midY, z: midZ },
-        colorHex: idx === 0 ? 0x0b57d0 : 0x1a73e8,
+        colorHex: idx === 0 ? 0x38bdf8 : 0x6366f1,
       });
     });
 
@@ -218,13 +239,13 @@ export function buildUniverse3DSceneData(
       const ownerName = profile.ubo_entity_name ?? profile.entity_name;
       const isUbo = Boolean(profile.ubo_entity_id);
 
-      if (ownerKey && (isUbo || profile.kyc_risk_tier === 'HIGH' || idx < 4)) {
+      if (ownerKey && (isUbo || profile.kyc_risk_tier === 'HIGH' || idx < 3)) {
         let ownerPos = uboAdded.get(ownerKey);
         if (!ownerPos) {
           ownerPos = {
-            x: accPos.x * 0.5,
-            y: 20 + (uboAdded.size % 2) * 4,
-            z: accPos.z * 0.5,
+            x: accPos.x * 0.45,
+            y: 17 + (uboAdded.size % 2) * 3.5,
+            z: accPos.z * 0.45,
           };
           uboAdded.set(ownerKey, ownerPos);
           overlayNodes.push({
@@ -235,10 +256,11 @@ export function buildUniverse3DSceneData(
               ? 'Beneficial Owner (UBO)'
               : `${profile.entity_type} Entity`,
             jurisdiction: profile.entity_jurisdiction,
-            position: ownerPos,
-            colorHex: isUbo ? 0x7c3aed : 0xb3261e,
-            badgeColor: isUbo ? '#7c3aed' : '#b3261e',
-            radius: isUbo ? 2.5 : 1.95,
+            cloudPosition: ownerPos,
+            ringPosition: ownerPos,
+            colorHex: isUbo ? 0xa855f7 : 0xf43f5e,
+            badgeColor: isUbo ? '#c084fc' : '#fb7185',
+            radius: isUbo ? 2.1 : 1.6,
             isAnchor: false,
             isHighRisk: profile.is_pep_or_sanctioned,
           });
@@ -249,17 +271,17 @@ export function buildUniverse3DSceneData(
           toPos: accPos,
           label: isUbo ? ':CONTROLS / :OWNS' : ':OWNS',
           kind: 'ubo',
-          colorHex: 0x7c3aed,
+          colorHex: 0xa855f7,
         });
       }
 
-      if (profile.bank_id && bankAdded.size < 6) {
+      if (profile.bank_id && bankAdded.size < 5) {
         let bankPos = bankAdded.get(profile.bank_id);
         if (!bankPos) {
           bankPos = {
-            x: accPos.x * 1.15,
-            y: -16 - (bankAdded.size % 2) * 3,
-            z: accPos.z * 1.15,
+            x: accPos.x * 1.12,
+            y: -14 - (bankAdded.size % 2) * 2.5,
+            z: accPos.z * 1.12,
           };
           bankAdded.set(profile.bank_id, bankPos);
           overlayNodes.push({
@@ -268,10 +290,11 @@ export function buildUniverse3DSceneData(
             label: profile.bank_name,
             sublabel: profile.bic_swift,
             jurisdiction: profile.bank_jurisdiction,
-            position: bankPos,
-            colorHex: 0x0284c7,
-            badgeColor: '#0284c7',
-            radius: 1.75,
+            cloudPosition: bankPos,
+            ringPosition: bankPos,
+            colorHex: 0x0ea5e9,
+            badgeColor: '#38bdf8',
+            radius: 1.45,
             isAnchor: false,
             isHighRisk: false,
           });
@@ -282,7 +305,7 @@ export function buildUniverse3DSceneData(
           toPos: bankPos,
           label: ':HELD_AT',
           kind: 'bank',
-          colorHex: 0x0284c7,
+          colorHex: 0x0ea5e9,
         });
       }
     });
@@ -294,7 +317,7 @@ export function buildUniverse3DSceneData(
   const bgAccounts =
     rawAccounts.length > 0
       ? rawAccounts
-      : Array.from({ length: 340 }, (_, i) => ({
+      : Array.from({ length: 360 }, (_, i) => ({
           account_id: `ACC_CLOUD_${i}`,
           bank_id: `BANK_${i % 12}`,
           currency: 'USD',
@@ -315,10 +338,10 @@ export function buildUniverse3DSceneData(
     const theta = (2 * Math.PI * i) / goldenRatio;
     const phi = Math.acos(1 - (2 * (i + 0.5)) / Math.max(nodeCount, 1));
     const jitter = deterministicUnit(acc.account_id, 1);
-    const radius = 50 + jitter * 85;
+    const radius = 34 + jitter * 72;
 
     const x = radius * Math.sin(phi) * Math.cos(theta);
-    const y = radius * Math.cos(phi) * 0.68;
+    const y = radius * Math.cos(phi) * 0.65;
     const z = radius * Math.sin(phi) * Math.sin(theta);
 
     bgPosMap.set(acc.account_id, { x, y, z });
@@ -327,13 +350,14 @@ export function buildUniverse3DSceneData(
     nodePositions[i * 3 + 2] = z;
 
     if (acc.is_flagged) {
-      nodeColors[i * 3] = 0.86;
-      nodeColors[i * 3 + 1] = 0.25;
-      nodeColors[i * 3 + 2] = 0.2;
+      nodeColors[i * 3] = 0.96;
+      nodeColors[i * 3 + 1] = 0.32;
+      nodeColors[i * 3 + 2] = 0.45;
     } else {
-      nodeColors[i * 3] = 0.22;
-      nodeColors[i * 3 + 1] = 0.46;
-      nodeColors[i * 3 + 2] = 0.82;
+      const tint = (i % 5) * 0.05;
+      nodeColors[i * 3] = 0.32 + tint;
+      nodeColors[i * 3 + 1] = 0.62 + tint * 0.5;
+      nodeColors[i * 3 + 2] = 0.98;
     }
   });
 
@@ -352,7 +376,7 @@ export function buildUniverse3DSceneData(
     }
   });
 
-  for (let i = 0; i < Math.min(nodeCount - 3, 280); i += 1) {
+  for (let i = 0; i < Math.min(nodeCount - 3, 310); i += 1) {
     const targetIdx = (i + 3 + (i % 7)) % nodeCount;
     edgeSegments.push(
       nodePositions[i * 3],
