@@ -167,7 +167,6 @@ class RingDetector:
             rows = list(
                 snapshot.execute_sql(
                     GQL_PRE_SETTLEMENT_CYCLE_CHECK,
-    GQL_PRE_SETTLEMENT_TRAIL_CHECK,
                     params={
                         "from_account_id": from_account_id.strip(),
                         "to_account_id": to_account_id.strip(),
