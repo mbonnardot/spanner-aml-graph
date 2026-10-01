@@ -69,6 +69,11 @@ class SettlementInterceptor:
             candidate_timestamp=now_ts,
             min_amount=min(min_amount, amount_paid),
         )
+        if not matched and isinstance(self._detector, RingDetector):
+            matched = self._detector.check_pre_settlement_laundering_trail(
+                from_account_id=clean_from,
+                to_account_id=clean_to,
+            )
         latency_ms = round((time.perf_counter() - t_start) * 1000.0, 2)
 
         decision = "HELD" if matched else "SETTLED"

@@ -140,6 +140,14 @@ export function App() {
         const envelope =
           (await res.json()) as ApiEnvelope<EnrichedCaseInvestigation>;
         setInvestigation(envelope.data);
+        const hops = envelope.data?.evidence?.hops ?? [];
+        const finalHop = hops[hops.length - 1];
+        if (finalHop) {
+          setInterceptSender(finalHop.from_account_id);
+          setInterceptReceiver(finalHop.to_account_id);
+          setInterceptAmount(String(finalHop.amount_paid));
+        }
+        setInterceptResult(null);
       } catch (err: unknown) {
         if (err instanceof DOMException && err.name === 'AbortError') {
           return;
@@ -349,7 +357,6 @@ export function App() {
         lastLatencyMs={investigation?.evidence.query_latency_ms ?? null}
         viewMode={viewMode}
         onChangeViewMode={setViewMode}
-        onOpenSimulator={() => setSimulatorOpen(true)}
       />
 
       {viewMode !== 'workbench2d' ? (
@@ -379,6 +386,7 @@ export function App() {
             onSimulateIntercept={handleSimulatePaymentIntercept}
             isIntercepting={isIntercepting}
             interceptResult={interceptResult}
+            onResetIntercept={() => setInterceptResult(null)}
             onDraftSingleTicketSar={handleDraftSingleTicketSar}
             isGeneratingSar={isGeneratingSar}
             activeAlert={activeAlert}

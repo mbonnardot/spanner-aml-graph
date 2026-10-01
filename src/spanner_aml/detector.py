@@ -18,6 +18,7 @@ from spanner_aml.queries import (
     GQL_FAN_OUT,
     GQL_GATHER_SCATTER,
     GQL_PRE_SETTLEMENT_CYCLE_CHECK,
+    GQL_PRE_SETTLEMENT_TRAIL_CHECK,
     GQL_RANDOM_WALK_LAYERING,
     GQL_SAME_ENTITY_RING,
     GQL_SCATTER_GATHER,
@@ -166,6 +167,7 @@ class RingDetector:
             rows = list(
                 snapshot.execute_sql(
                     GQL_PRE_SETTLEMENT_CYCLE_CHECK,
+    GQL_PRE_SETTLEMENT_TRAIL_CHECK,
                     params={
                         "from_account_id": from_account_id.strip(),
                         "to_account_id": to_account_id.strip(),
@@ -207,6 +209,48 @@ class RingDetector:
                     raw_graph_path={"prior_path": _unwrap_json(prior_path_raw)},
                 )
             )
+        return tuple(results)
+
+    def check_pre_settlement_laundering_trail(
+        self,
+        from_account_id: str,
+        to_account_id: str,
+    ) -> tuple[LaunderingRingEvidence, ...]:
+        """Evaluate whether `from_account_id -> to_account_id` is the payout edge of an upstream laundering trail."""
+        if not from_account_id.strip() or not to_account_id.strip():
+            raise ValueError("from_account_id and to_account_id must be non-empty")
+
+        t_start = time.perf_counter()
+        with self._database.snapshot() as snapshot:
+            rows = list(
+                snapshot.execute_sql(
+                    GQL_PRE_SETTLEMENT_TRAIL_CHECK,
+                    params={
+                        "from_account_id": from_account_id.strip(),
+                        "to_account_id": to_account_id.strip(),
+                    },
+                    param_types={
+                        "from_account_id": param_types.STRING,
+                        "to_account_id": param_types.STRING,
+                    },
+                )
+            )
+        latency_ms = round((time.perf_counter() - t_start) * 1000.0, 2)
+
+        results: list[LaunderingRingEvidence] = []
+        for row in rows:
+            path_raw = row[0]
+            hops = parse_graph_path_hops(path_raw)
+            if hops:
+                results.append(
+                    LaunderingRingEvidence.from_hops(
+                        typology="PRE_SETTLEMENT_TRAIL_CHECK",
+                        hops=hops,
+                        subject_entity_id=None,
+                        query_latency_ms=latency_ms,
+                        raw_graph_path={"laundering_path": _unwrap_json(path_raw)},
+                    )
+                )
         return tuple(results)
 
     def detect_same_entity_rings(

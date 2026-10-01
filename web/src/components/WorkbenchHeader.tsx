@@ -5,7 +5,6 @@ interface WorkbenchHeaderProps {
   readonly lastLatencyMs: number | null;
   readonly viewMode: ViewMode;
   readonly onChangeViewMode: (mode: ViewMode) => void;
-  readonly onOpenSimulator: () => void;
 }
 
 export function WorkbenchHeader({
@@ -13,7 +12,6 @@ export function WorkbenchHeader({
   lastLatencyMs,
   viewMode,
   onChangeViewMode,
-  onOpenSimulator,
 }: WorkbenchHeaderProps) {
   return (
     <header className="m3-top-bar">
@@ -51,18 +49,6 @@ export function WorkbenchHeader({
           </span>
           3D Sandbox
         </button>
-        <button
-          type="button"
-          className={`m3-segmented-btn ${
-            viewMode === 'workbench2d' ? 'm3-segmented-btn--active' : ''
-          }`}
-          onClick={() => onChangeViewMode('workbench2d')}
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-            schema
-          </span>
-          2D Inspector
-        </button>
       </div>
 
       <div className="m3-top-bar__actions">
@@ -86,19 +72,6 @@ export function WorkbenchHeader({
           <div className="m3-status-pill">
             <span>Connecting...</span>
           </div>
-        )}
-
-        {viewMode === 'workbench2d' && (
-          <button
-            type="button"
-            className="m3-btn m3-btn--tonal"
-            onClick={onOpenSimulator}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
-              science
-            </span>
-            Simulator
-          </button>
         )}
       </div>
     </header>

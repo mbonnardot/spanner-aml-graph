@@ -223,3 +223,62 @@ def test_sar_investigator_verifies_citations_and_persists_alert():
     listed = repo.list_alerts(limit=10)
     assert len(listed) == 1
     assert listed[0].alert_id == "ALT_001"
+
+
+def test_settlement_interceptor_holds_non_cyclic_laundering_trail():
+    from spanner_aml.detector import RingDetector
+
+    mock_db = MagicMock()
+    mock_snapshot = MagicMock()
+    mock_db.snapshot.return_value.__enter__.return_value = mock_snapshot
+    # First call: GQL_PRE_SETTLEMENT_CYCLE_CHECK returns empty (non-cyclic pattern)
+    # Second call: GQL_PRE_SETTLEMENT_TRAIL_CHECK returns a 2-hop laundering path ending at ACC_MULE -> ACC_PAYOUT
+    mock_snapshot.execute_sql.side_effect = [
+        [],
+        [
+            (
+                [
+                    {
+                        "kind": "edge",
+                        "labels": ["TRANSFERRED_TO"],
+                        "properties": {
+                            "transaction_id": "TX_LAYER_1",
+                            "from_account_id": "ACC_ORIGIN",
+                            "to_account_id": "ACC_MULE",
+                            "amount_paid": "25000.00",
+                            "amount_received": "25000.00",
+                            "payment_currency": "USD",
+                            "payment_format": "Wire",
+                            "event_timestamp": "2026-09-01T10:00:00Z",
+                        },
+                    },
+                    {
+                        "kind": "edge",
+                        "labels": ["TRANSFERRED_TO"],
+                        "properties": {
+                            "transaction_id": "TX_PAYOUT_2",
+                            "from_account_id": "ACC_MULE",
+                            "to_account_id": "ACC_PAYOUT",
+                            "amount_paid": "24800.00",
+                            "amount_received": "24800.00",
+                            "payment_currency": "USD",
+                            "payment_format": "Wire",
+                            "event_timestamp": "2026-09-01T10:10:00Z",
+                        },
+                    },
+                ],
+                2,
+            )
+        ],
+    ]
+    detector = RingDetector(mock_db)
+    interceptor = SettlementInterceptor(mock_db, detector=detector)
+    res = interceptor.evaluate_candidate_transfer(
+        from_account_id="ACC_MULE",
+        to_account_id="ACC_PAYOUT",
+        amount_paid=Decimal("24800.00"),
+        persist=False,
+    )
+    assert res.decision == "HELD"
+    assert len(res.matched_evidence) == 1
+    assert res.matched_evidence[0].hop_count == 2

@@ -222,3 +222,16 @@ SELECT entity_id, entity_name
 FROM Entities
 WHERE entity_id IN UNNEST(@ubo_ids)
 """.strip()
+
+
+GQL_PRE_SETTLEMENT_TRAIL_CHECK = """
+GRAPH AmlGraph
+MATCH p = ACYCLIC (origin:Account)-[chain:TRANSFERRED_TO]->{1, 6}(receiver:Account {account_id: @to_account_id})
+FILTER chain[SAFE_OFFSET(ARRAY_LENGTH(chain) - 1)].from_account_id = @from_account_id
+  AND chain[SAFE_OFFSET(ARRAY_LENGTH(chain) - 1)].is_laundering = true
+RETURN SAFE.TO_JSON(p) AS laundering_path,
+       ARRAY_LENGTH(chain) AS total_hops
+ORDER BY total_hops DESC
+LIMIT 3
+""".strip()
+

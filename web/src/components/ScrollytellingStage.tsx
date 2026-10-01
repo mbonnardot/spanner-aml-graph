@@ -38,6 +38,7 @@ interface ScrollytellingStageProps {
   readonly interceptAmount: string;
   readonly onChangeInterceptAmount: (v: string) => void;
   readonly onSimulateIntercept: () => void;
+  readonly onResetIntercept?: () => void;
   readonly isIntercepting: boolean;
   readonly interceptResult: InterceptionResult | null;
   readonly onDraftSingleTicketSar: () => void;
@@ -203,6 +204,7 @@ export function ScrollytellingStage({
   interceptAmount,
   onChangeInterceptAmount,
   onSimulateIntercept,
+  onResetIntercept,
   isIntercepting,
   interceptResult,
   onDraftSingleTicketSar,
@@ -226,6 +228,10 @@ export function ScrollytellingStage({
 
   const hops = investigation?.evidence.hops ?? [];
   const hopCount = hops.length;
+  const interceptSenderProfile = investigation?.kyc_profiles[interceptSender];
+  const interceptReceiverProfile = investigation?.kyc_profiles[interceptReceiver];
+  const isWireHeld =
+    interceptResult?.decision === 'HELD' || interceptResult?.decision === 'BLOCK_HOLD_COMPLIANCE';
 
   useEffect(() => {
     setActiveHopIndex(0);
@@ -1068,72 +1074,160 @@ export function ScrollytellingStage({
             </div>
 
             {actionTab === 'block' ? (
-              <div className="m3-card" style={{ padding: 14 }}>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr 88px',
-                    gap: 8,
-                    marginBottom: 10,
-                  }}
-                >
-                  <input
-                    className="m3-input"
-                    value={interceptSender}
-                    onChange={(e) => onChangeInterceptSender(e.target.value)}
-                    placeholder="Sender"
-                  />
-                  <input
-                    className="m3-input"
-                    value={interceptReceiver}
-                    onChange={(e) => onChangeInterceptReceiver(e.target.value)}
-                    placeholder="Receiver"
-                  />
-                  <input
-                    className="m3-input"
-                    type="number"
-                    value={interceptAmount}
-                    onChange={(e) => onChangeInterceptAmount(e.target.value)}
-                    placeholder="USD"
-                  />
-                </div>
+                  <>
+                    <p className="m3-act-body">
+                      Before the syndicate can complete <strong>3. Integration (Clean Cash-Out)</strong>, every outbound wire passes through a <strong>Pre-Settlement Graph Gate</strong>. Spanner Graph traces upstream hops in <strong>&lt;150ms</strong> and freezes the payout before money leaves the bank.
+                    </p>
 
-                <button
-                  type="button"
-                  className="m3-btn m3-btn--filled"
-                  style={{ width: '100%' }}
-                  disabled={isIntercepting}
-                  onClick={onSimulateIntercept}
-                >
-                  <span
-                    className="material-symbols-outlined"
-                    style={{ fontSize: 18 }}
-                  >
-                    shield
-                  </span>
-                  {isIntercepting
-                    ? 'Checking Ledger...'
-                    : 'Simulate & Block Wire'}
-                </button>
+                    <div className={`m3-intercept-wire-banner ${isWireHeld ? 'm3-intercept-wire-banner--held' : ''}`}>
+                      <div className="m3-intercept-wire-banner__top">
+                        <span className="m3-intercept-wire-banner__tag">
+                          <span className="material-symbols-rounded" aria-hidden="true">
+                            {isWireHeld ? 'gpp_bad' : 'bolt'}
+                          </span>
+                          {isWireHeld
+                            ? '⛔ WIRE FROZEN PRE-SETTLEMENT'
+                            : `⚡ TARGET CASH-OUT WIRE (HOP ${hopCount || 1} OF ${hopCount || 1})`}
+                        </span>
+                        <span className="m3-intercept-wire-banner__amount">
+                          ${Number(interceptAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <div className="m3-intercept-wire-banner__route">
+                        <div className="m3-intercept-wire-banner__endpoint">
+                          <small>From Final Layering Mule</small>
+                          <strong>{interceptSenderProfile?.entity_name ?? `Account ${interceptSender}`}</strong>
+                          <code>{interceptSender}</code>
+                        </div>
+                        <span className="material-symbols-rounded m3-intercept-wire-banner__arrow" aria-hidden="true">
+                          {isWireHeld ? 'block' : 'east'}
+                        </span>
+                        <div className="m3-intercept-wire-banner__endpoint">
+                          <small>To Clean Payout Account</small>
+                          <strong>{interceptReceiverProfile?.entity_name ?? `Account ${interceptReceiver}`}</strong>
+                          <code>{interceptReceiver}</code>
+                        </div>
+                      </div>
+                    </div>
 
-                {interceptResult && (
-                  <div
-                    className={`m3-card ${
-                      interceptResult.decision === 'HELD' ||
-                      interceptResult.decision === 'BLOCK_HOLD_COMPLIANCE'
-                        ? 'm3-card--tonal-error'
-                        : 'm3-card--tonal-primary'
-                    }`}
-                    style={{ marginTop: 10, padding: 10, fontSize: '0.78rem' }}
-                  >
-                    <strong>{interceptResult.decision}</strong> •{' '}
-                    {interceptResult.latency_ms.toFixed(1)} ms •{' '}
-                    {interceptResult.matched_rings.length} cycle(s) matched —
-                    clean payout frozen in 3D!
-                  </div>
-                )}
-              </div>
-            ) : (
+                    <div className="m3-intercept-steps">
+                      <div className="m3-intercept-step m3-intercept-step--done">
+                        <span className="m3-intercept-step__num">1</span>
+                        <div>
+                          <strong>Pre-Settlement Gate Hold</strong>
+                          <p>
+                            Account <code>{interceptSender}</code> submits a <strong>${Number(interceptAmount || 0).toLocaleString()}</strong> wire to <code>{interceptReceiver}</code>. The payment rail pauses settlement for &lt;150ms.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="m3-intercept-step m3-intercept-step--done">
+                        <span className="m3-intercept-step__num">2</span>
+                        <div>
+                          <strong>Spanner Graph Upstream Check (&lt;150ms)</strong>
+                          <p>
+                            Spanner traverses <code>AmlGraph</code> upstream across <strong>{hopCount} hops</strong> ({activePatternMeta.name}) and detects the illicit placement trail from <code>{hops[0]?.from_account_id ?? interceptSender}</code>.
+                          </p>
+                        </div>
+                      </div>
+                      <div className={`m3-intercept-step ${isWireHeld ? 'm3-intercept-step--held' : 'm3-intercept-step--active'}`}>
+                        <span className="m3-intercept-step__num">3</span>
+                        <div>
+                          <strong>
+                            {isWireHeld && interceptResult
+                              ? `Frozen in ${interceptResult.latency_ms.toFixed(1)} ms (${interceptResult.decision})`
+                              : 'Automatic Freeze Before Payout'}
+                          </strong>
+                          <p>
+                            {isWireHeld
+                              ? 'The outbound cash-out wire is locked in crimson red in the 3D graph and all money-laundering pulses are frozen in place before settlement.'
+                              : 'Click below to run the live Spanner Graph pre-settlement check and watch the cash-out conduit freeze in 3D.'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="m3-intercept-grid">
+                      <label className="m3-intercept-field">
+                        <span>From Account</span>
+                        <input
+                          type="text"
+                          className="m3-input"
+                          value={interceptSender}
+                          onChange={(e) => onChangeInterceptSender(e.target.value)}
+                          aria-label="Sender Account ID"
+                          placeholder="Sender"
+                        />
+                      </label>
+                      <label className="m3-intercept-field">
+                        <span>To Account</span>
+                        <input
+                          type="text"
+                          className="m3-input"
+                          value={interceptReceiver}
+                          onChange={(e) => onChangeInterceptReceiver(e.target.value)}
+                          aria-label="Receiver Account ID"
+                          placeholder="Receiver"
+                        />
+                      </label>
+                      <label className="m3-intercept-field">
+                        <span>Wire USD</span>
+                        <input
+                          type="number"
+                          className="m3-input"
+                          value={interceptAmount}
+                          onChange={(e) => onChangeInterceptAmount(e.target.value)}
+                          aria-label="Wire Amount USD"
+                          placeholder="USD"
+                        />
+                      </label>
+                    </div>
+
+                    {!isWireHeld ? (
+                      <button
+                        type="button"
+                        className="m3-filled-btn m3-filled-btn--danger m3-act-full-btn"
+                        onClick={onSimulateIntercept}
+                        disabled={isIntercepting}
+                      >
+                        <span className="material-symbols-rounded" aria-hidden="true">block</span>
+                        {isIntercepting ? 'Checking Upstream Trail in Spanner Graph...' : 'Intercept & Freeze Clean Payout Wire'}
+                      </button>
+                    ) : (
+                      <div className="m3-intercept-actions-row">
+                        <button
+                          type="button"
+                          className="m3-filled-btn m3-act-full-btn"
+                          onClick={() => setActionTab('sar')}
+                        >
+                          <span className="material-symbols-rounded" aria-hidden="true">description</span>
+                          Next: Draft FinCEN SAR Report
+                        </button>
+                        {onResetIntercept && (
+                          <button
+                            type="button"
+                            className="m3-tonal-btn"
+                            onClick={onResetIntercept}
+                          >
+                            <span className="material-symbols-rounded" aria-hidden="true">replay</span>
+                            Replay Wire
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {interceptResult && !isWireHeld && (
+                      <div className="m3-intercept-banner m3-intercept-banner--cleared">
+                        <div className="m3-intercept-banner__head">
+                          <span className="material-symbols-rounded" aria-hidden="true">verified_user</span>
+                          <div>
+                            <strong>CLEARED — No Upstream Laundering Trail Found</strong>
+                            <span>{interceptResult.latency_ms.toFixed(1)} ms Spanner Graph check</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
               <div className="m3-card" style={{ padding: 14 }}>
                 <button
                   type="button"
