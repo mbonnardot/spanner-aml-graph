@@ -301,3 +301,26 @@ def test_workbench_service_typology_routing_and_vertex_gemini():
     service._alert_repo.list_alerts.return_value = (alert,)
     assert len(service.list_alerts(limit=10)) == 1
 
+
+def test_investigate_includes_demo_guide_and_live_gql():
+    from spanner_aml.api.app import get_typology_demo_guide
+
+    for typ in (
+        "CIRCULAR_LAYERING",
+        "UBO_SHELL_RING",
+        "SAME_ENTITY_RING",
+        "SCATTER_GATHER",
+        "GATHER_SCATTER",
+        "FAN_OUT",
+        "FAN_IN",
+        "BIPARTITE",
+        "STACKED_BIPARTITE",
+        "RANDOM_WALK",
+    ):
+        guide = get_typology_demo_guide(typ)
+        assert guide["nickname"]
+        assert guide["plain_english"]
+        assert guide["why_spanner_wins"]
+        assert guide["gql_query"].startswith("GRAPH AmlGraph")
+
+

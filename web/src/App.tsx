@@ -14,6 +14,7 @@ import {
 import type { NodeMouseHandler } from '@xyflow/react';
 import { AccountNode, BankNode, EntityNode } from './components/CarbonNodes';
 import { CaseDossierSidebar } from './components/CaseDossierSidebar';
+import { DemoStoryBanner } from './components/DemoStoryBanner';
 import { HopTimelineTable } from './components/HopTimelineTable';
 import { InvestigationSidebar } from './components/InvestigationSidebar';
 import { TransferHopEdge } from './components/TransferHopEdge';
@@ -372,6 +373,8 @@ export function App() {
               lowContrast
             />
           )}
+
+          <DemoStoryBanner investigation={investigation} />
 
           <div className="graph-canvas-wrapper">
             {isLoadingGraph && (

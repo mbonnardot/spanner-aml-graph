@@ -28,7 +28,188 @@ from spanner_aml.models import (
     InterceptionResult,
     LaunderingRingEvidence,
 )
+from spanner_aml.queries import (
+    GQL_BIPARTITE,
+    GQL_CIRCULAR_LAYERING,
+    GQL_FAN_IN,
+    GQL_FAN_OUT,
+    GQL_GATHER_SCATTER,
+    GQL_PRE_SETTLEMENT_CYCLE_CHECK,
+    GQL_RANDOM_WALK_LAYERING,
+    GQL_SAME_ENTITY_RING,
+    GQL_SCATTER_GATHER,
+    GQL_STACKED_BIPARTITE,
+    GQL_UBO_SHELL_RING,
+)
 from spanner_aml.sar_agent import AlertRepository, SarInvestigator
+
+_TYPOLOGY_DEMO_GUIDES: Mapping[str, Mapping[str, str]] = MappingProxyType(
+    {
+        "CIRCULAR_LAYERING": MappingProxyType(
+            {
+                "nickname": "The Washing Machine (Circular Loop)",
+                "plain_english": (
+                    "Criminals bounce illicit funds through a chain of 3 to 10 middlemen accounts "
+                    "across different banks and currencies so the money returns to the starting account looking clean."
+                ),
+                "why_spanner_wins": (
+                    "Tracing a 10-hop loop in SQL requires 10 self-joins on a massive Transactions table. "
+                    "Cloud Spanner Graph runs 1 bounded path query (-[chain:TRANSFERRED_TO]->{2, 12}) with strict chronological ordering in ~140ms."
+                ),
+                "gql_query": GQL_CIRCULAR_LAYERING,
+            }
+        ),
+        "UBO_SHELL_RING": MappingProxyType(
+            {
+                "nickname": "The Hidden Puppet Master (UBO Shell Ring)",
+                "plain_english": (
+                    "Instead of returning money to the same account, Shell Company A wires funds through intermediaries "
+                    "to Shell Company B. On paper they look unrelated, but the same billionaire (UBO) secretly controls both."
+                ),
+                "why_spanner_wins": (
+                    "Spanner Graph traverses corporate ownership edges (:CONTROLS and :OWNS) and wire transfer edges "
+                    "(:TRANSFERRED_TO) in a single unified query—exposing hidden beneficial ownership loops instantly."
+                ),
+                "gql_query": GQL_UBO_SHELL_RING,
+            }
+        ),
+        "SAME_ENTITY_RING": MappingProxyType(
+            {
+                "nickname": "The Self-Transfer Disguise (Same-Entity Ring)",
+                "plain_english": (
+                    "A high-risk corporate entity routes funds out of one bank account, bounces them through external "
+                    "intermediaries, and deposits them into a second account owned by the exact same corporation."
+                ),
+                "why_spanner_wins": (
+                    "Matches (e:Entity)-[:OWNS]->(src) and (e:Entity)-[:OWNS]->(dst) across variable-length payment "
+                    "paths without moving data out of the operational ledger."
+                ),
+                "gql_query": GQL_SAME_ENTITY_RING,
+            }
+        ),
+        "SCATTER_GATHER": MappingProxyType(
+            {
+                "nickname": "The Smurfing Diamond (Scatter-Gather)",
+                "plain_english": (
+                    "An origin account splits a large sum into 16 smaller transfers across 'money mule' accounts "
+                    "to stay under reporting thresholds, and all 16 mules immediately forward the funds to one collector account."
+                ),
+                "why_spanner_wins": (
+                    "Matches the full diamond topology (origin -> mule -> sink), groups by origin/sink pairs, "
+                    "and verifies every mule's inbound transfer arrived before its outbound transfer."
+                ),
+                "gql_query": GQL_SCATTER_GATHER,
+            }
+        ),
+        "GATHER_SCATTER": MappingProxyType(
+            {
+                "nickname": "The Underground Clearinghouse (Gather-Scatter)",
+                "plain_english": (
+                    "A central hub account collects structured deposits from multiple senders, pools the money, "
+                    "and immediately disperses it out to downstream beneficiary accounts."
+                ),
+                "why_spanner_wins": (
+                    "Aggregates both fan-in and fan-out degrees around the central hub node in a single GQL pass "
+                    "while enforcing chronological flow (e_in.event_timestamp <= e_out.event_timestamp)."
+                ),
+                "gql_query": GQL_GATHER_SCATTER,
+            }
+        ),
+        "FAN_OUT": MappingProxyType(
+            {
+                "nickname": "Rapid Structuring Split (Fan-Out)",
+                "plain_english": (
+                    "A single account rapidly splits funds across many beneficiary accounts in parallel "
+                    "to obscure the origin of illicit proceeds."
+                ),
+                "why_spanner_wins": (
+                    "Uses ISO GQL NEXT pipeline chaining to group outbound edges by hub account and filter on distinct receiver degree."
+                ),
+                "gql_query": GQL_FAN_OUT,
+            }
+        ),
+        "FAN_IN": MappingProxyType(
+            {
+                "nickname": "Smurfing Collector Aggregation (Fan-In)",
+                "plain_english": (
+                    "Many unrelated accounts simultaneously wire smaller amounts into a single collector account "
+                    "to consolidate illicit cash deposits."
+                ),
+                "why_spanner_wins": (
+                    "Aggregates inbound transfer edges per sink account in real time on the transactional Spanner database."
+                ),
+                "gql_query": GQL_FAN_IN,
+            }
+        ),
+        "BIPARTITE": MappingProxyType(
+            {
+                "nickname": "Pass-Through Conduit Relay (Bipartite)",
+                "plain_english": (
+                    "Upstream feeder accounts fund an intermediary pass-through account that relays funds "
+                    "downstream to isolate the originators from the final recipients."
+                ),
+                "why_spanner_wins": (
+                    "Correlates upstream funding edges and downstream relay edges in one graph pattern match."
+                ),
+                "gql_query": GQL_BIPARTITE,
+            }
+        ),
+        "STACKED_BIPARTITE": MappingProxyType(
+            {
+                "nickname": "Multi-Tier Shell Relay (Stacked Bipartite)",
+                "plain_english": (
+                    "Funds cascade through multiple sequential layers of pass-through accounts so no single bank "
+                    "can see both the original sender and final beneficiary."
+                ),
+                "why_spanner_wins": (
+                    "Traverses multi-tier ACYCLIC paths with array-level chronological validation directly inside Spanner."
+                ),
+                "gql_query": GQL_STACKED_BIPARTITE,
+            }
+        ),
+        "RANDOM_WALK": MappingProxyType(
+            {
+                "nickname": "The Zig-Zag Escape Trail (Random Walk)",
+                "plain_english": (
+                    "Instead of looping back, launderers move funds along an 8+ hop zig-zag chain of accounts "
+                    "across banks to outrun manual compliance investigations."
+                ),
+                "why_spanner_wins": (
+                    "Traces up to 11 sequential hops in ~100ms using ACYCLIC path matching and timestamp monotonicity checks."
+                ),
+                "gql_query": GQL_RANDOM_WALK_LAYERING,
+            }
+        ),
+        "PRE_SETTLEMENT_CYCLE_CHECK": MappingProxyType(
+            {
+                "nickname": "In-Flight Wire Interception (Pre-Settlement Hold)",
+                "plain_english": (
+                    "Before a new wire transfer settles, Spanner checks whether the recipient previously sent funds "
+                    "along a path leading to the current sender—catching the loop before the money leaves."
+                ),
+                "why_spanner_wins": (
+                    "Because Spanner is the live transactional ledger (zero overnight ETL), it can block a ring-closing wire in ~110ms."
+                ),
+                "gql_query": GQL_PRE_SETTLEMENT_CYCLE_CHECK,
+            }
+        ),
+    }
+)
+
+
+def get_typology_demo_guide(typology: str) -> dict[str, str]:
+    """Return plain-English storytelling notes and the live ISO GQL query for a typology."""
+    t = typology.strip().upper().replace("-", "_")
+    alias_map = {
+        "CYCLE": "CIRCULAR_LAYERING",
+        "STACK": "STACKED_BIPARTITE",
+        "RANDOM": "RANDOM_WALK",
+        "RANDOM_WALK_LAYERING": "RANDOM_WALK",
+    }
+    key = alias_map.get(t, t)
+    guide = _TYPOLOGY_DEMO_GUIDES.get(key, _TYPOLOGY_DEMO_GUIDES["CIRCULAR_LAYERING"])
+    return dict(guide)
+
 
 _RAW_CASE_CATALOG: tuple[dict[str, Any], ...] = (
     {
@@ -170,6 +351,7 @@ def _serialize_investigation(inv: EnrichedCaseInvestigation) -> dict[str, Any]:
         "case_id": inv.case_id,
         "enrichment_latency_ms": inv.enrichment_latency_ms,
         "evidence": _serialize_evidence(inv.evidence),
+        "demo_guide": get_typology_demo_guide(inv.evidence.typology),
         "risk_assessment": {
             "risk_score": inv.risk_assessment.risk_score,
             "risk_level": inv.risk_assessment.risk_level,

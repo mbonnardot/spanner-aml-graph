@@ -78,12 +78,20 @@ export interface RiskAssessment {
   readonly reasons: readonly string[];
 }
 
+export interface DemoGuide {
+  readonly nickname: string;
+  readonly plain_english: string;
+  readonly why_spanner_wins: string;
+  readonly gql_query: string;
+}
+
 export interface EnrichedCaseInvestigation {
   readonly case_id: string;
   readonly enrichment_latency_ms: number;
   readonly evidence: LaunderingRingEvidence;
   readonly kyc_profiles: Readonly<Record<string, AccountKycProfile>>;
   readonly risk_assessment: RiskAssessment;
+  readonly demo_guide?: DemoGuide;
 }
 
 export interface ComplianceAlert {
