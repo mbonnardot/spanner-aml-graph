@@ -8,37 +8,45 @@ Instead of relying on overnight relational batch jobs that fail across multi-hop
 
 ## Architecture Overview
 
-```mermaid
-flowchart LR
-    subgraph Spanner["Google Cloud Spanner (AmlGraph)"]
-        direction TB
-        Nodes["Nodes: Banks • Entities • Accounts"]
-        Edges["Edges: CONTROLS • OWNS • HELD_AT • TRANSFERRED_TO"]
-        Alerts["Table: ComplianceAlerts"]
-    end
-
-    subgraph Engine["Python AML Graph Engine (src/spanner_aml)"]
-        Loader["Dataset Loader & FX Normalizer"]
-        Detector["ISO GQL Ring & Trail Detector (8 Patterns)"]
-        Enricher["KYC / UBO Context Enricher ($0 LLM Cost)"]
-        Interceptor["Pre-Settlement Gate (<150ms HOLD / SETTLED)"]
-        SAR["Vertex AI Gemini FinCEN SAR Generator"]
-    end
-
-    subgraph Web["3D Scrollytelling Workbench (web/)"]
-        Stage["5-Act Interactive AML Story Stage"]
-        Universe["Three.js 3D Transaction Universe"]
-    end
-
-    Loader --> Spanner
-    Spanner <--> Detector
-    Spanner <--> Enricher
-    Spanner <--> Interceptor
-    Enricher --> SAR
-    SAR --> Alerts
-    Detector --> Web
-    Interceptor --> Web
-    SAR --> Web
+```text
++---------------------------------------------------------------------------------------------------+
+|                             3D Scrollytelling Workbench (web/)                                    |
+|                                                                                                   |
+|  +-------------------------------------------+     +-------------------------------------------+  |
+|  |     5-Act Interactive AML Story Stage     | <-> |     Three.js 3D Transaction Universe      |  |
+|  |  • Pattern Switcher (8 AML Topologies)    |     |  • Live Multi-Bank Account & Wire Graph   |  |
+|  |  • Hop-by-Hop Layering & KYC Inspector    |     |  • Animated Dirty -> Layering -> Clean    |  |
+|  |  • Pre-Settlement Gate & FinCEN SAR UI    |     |  • Crimson Frozen Wire Conduit Callout    |  |
+|  +-------------------------------------------+     +-------------------------------------------+  |
++---------------------------------------------------------------------------------------------------+
+                         ^                                           ^
+                         | REST / JSON (`/api/*`)                    | Real-Time Interception (`<150ms`)
+                         v                                           v
++---------------------------------------------------------------------------------------------------+
+|                           Python AML Graph Engine (src/spanner_aml/)                              |
+|                                                                                                   |
+|  +----------------------------+   +----------------------------+   +---------------------------+  |
+|  |  ISO GQL Ring Detector     |   |  KYC / UBO Enricher        |   |  Pre-Settlement Gate      |  |
+|  |  • 8 Laundering Topologies |-->|  • Multi-Hop UBO Lookup    |   |  • Upstream Trail & Ring  |  |
+|  |  • Chronological Hop Check |   |  • Zero LLM Token Cost     |   |  • HOLD vs SETTLED (<150ms|  |
+|  +----------------------------+   +----------------------------+   +---------------------------+  |
+|                 ^                                |                                ^               |
+|                 |                                v                                |               |
+|                 |                 +----------------------------+                  |               |
+|                 |                 |  Vertex AI Gemini SAR      |                  |               |
+|                 |                 |  • FinCEN SAR Narrative    |                  |               |
+|                 |                 +----------------------------+                  |               |
++-----------------|--------------------------------|--------------------------------|---------------+
+                  |                                |                                |
+                  | Parameterized ISO GQL          | Write Alert                    | Primary-Key GQL
+                  v                                v                                v
++---------------------------------------------------------------------------------------------------+
+|                        Google Cloud Spanner Property Graph (`AmlGraph`)                           |
+|                                                                                                   |
+|  Nodes:  (Bank) • (Entity / UBO) • (Account)                                                      |
+|  Edges:  -[:CONTROLS]-> • -[:OWNS]-> • -[:HELD_AT]-> • -[:TRANSFERRED_TO {amount, timestamp}]->   |
+|  Tables: Banks • Entities • Accounts • Transactions • ComplianceAlerts                            |
++---------------------------------------------------------------------------------------------------+
 ```
 
 ---
