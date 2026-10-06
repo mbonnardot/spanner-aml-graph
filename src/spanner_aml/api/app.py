@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from decimal import Decimal
 import os
 from pathlib import Path
+import time
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping, TypeVar
+
+_T = TypeVar("_T")
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,6 +45,7 @@ from spanner_aml.queries import (
     GQL_STACKED_BIPARTITE,
     GQL_UBO_SHELL_RING,
 )
+from spanner_aml.fallback import LocalGraphFallbackStore
 from spanner_aml.sar_agent import AlertRepository, SarInvestigator
 
 _TYPOLOGY_DEMO_GUIDES: Mapping[str, Mapping[str, str]] = MappingProxyType(
@@ -503,6 +508,34 @@ class WorkbenchService:
         return self._alert_repo.list_alerts(limit=limit)
 
 
+def get_fallback_store(request: Request) -> LocalGraphFallbackStore:
+    """Resolve or lazily initialize the local seed + HI-Small fallback store."""
+    if not hasattr(request.app.state, "fallback_store"):
+        request.app.state.fallback_store = LocalGraphFallbackStore()
+    return request.app.state.fallback_store  # type: ignore[no-any-return]
+
+
+def _run_with_fallback(
+    request: Request,
+    primary_fn: Callable[[], _T],
+    fallback_fn: Callable[[LocalGraphFallbackStore], _T],
+    timeout_sec: float = 3.5,
+) -> _T:
+    """Execute primary Spanner call with fast timeout; fall back to local dataset on auth/network failure."""
+    if getattr(request.app.state, "spanner_unhealthy_until", 0.0) > time.monotonic():
+        return fallback_fn(get_fallback_store(request))
+    pool = ThreadPoolExecutor(max_workers=1)
+    fut = pool.submit(primary_fn)
+    pool.shutdown(wait=False)
+    try:
+        return fut.result(timeout=timeout_sec)
+    except (LookupError, ValueError):
+        raise
+    except Exception:
+        request.app.state.spanner_unhealthy_until = time.monotonic() + 120.0
+        return fallback_fn(get_fallback_store(request))
+
+
 def get_spanner_db(request: Request) -> Any:
     """Resolve or cache the Cloud Spanner Database handle."""
     if not hasattr(request.app.state, "spanner_db"):
@@ -542,27 +575,35 @@ def create_app() -> FastAPI:
     )
 
     @app.get("/api/health", response_model=ApiEnvelope)
-    def health_check(db: Any = Depends(get_spanner_db)) -> ApiEnvelope:
-        sql = """
-        SELECT
-          (SELECT COUNT(*) FROM Banks) AS banks_count,
-          (SELECT COUNT(*) FROM Entities) AS entities_count,
-          (SELECT COUNT(*) FROM Accounts) AS accounts_count,
-          (SELECT COUNT(*) FROM Transactions) AS transactions_count,
-          (SELECT COUNT(*) FROM ComplianceAlerts) AS alerts_count
-        """
-        with db.snapshot() as snapshot:
-            row = list(snapshot.execute_sql(sql))[0]
-        return ApiEnvelope(
-            success=True,
-            data={
+    def health_check(
+        request: Request, db: Any = Depends(get_spanner_db)
+    ) -> ApiEnvelope:
+        def _primary() -> dict[str, Any]:
+            sql = """
+            SELECT
+              (SELECT COUNT(*) FROM Banks) AS banks_count,
+              (SELECT COUNT(*) FROM Entities) AS entities_count,
+              (SELECT COUNT(*) FROM Accounts) AS accounts_count,
+              (SELECT COUNT(*) FROM Transactions) AS transactions_count,
+              (SELECT COUNT(*) FROM ComplianceAlerts) AS alerts_count
+            """
+            with db.snapshot() as snapshot:
+                row = list(snapshot.execute_sql(sql))[0]
+            return {
                 "status": "CONNECTED",
                 "banks_count": int(row[0]),
                 "entities_count": int(row[1]),
                 "accounts_count": int(row[2]),
                 "transactions_count": int(row[3]),
                 "alerts_count": int(row[4]),
-            },
+            }
+
+        data = _run_with_fallback(
+            request, _primary, lambda fb: fb.get_health_data()
+        )
+        return ApiEnvelope(
+            success=True,
+            data=data,
             meta={"graph": "AmlGraph"},
         )
 
@@ -575,64 +616,82 @@ def create_app() -> FastAPI:
         )
 
     @app.get("/api/universe", response_model=ApiEnvelope)
-    def get_graph_universe(db: Any = Depends(get_spanner_db)) -> ApiEnvelope:
-        accounts_sql = """
-        SELECT account_id, bank_id, currency, is_flagged
-        FROM Accounts
-        LIMIT 360
-        """
-        transactions_sql = """
-        SELECT transaction_id, from_account_id, to_account_id, amount_paid, payment_currency, is_laundering
-        FROM Transactions
-        LIMIT 520
-        """
-        with db.snapshot(multi_use=True) as snapshot:
-            acc_rows = list(snapshot.execute_sql(accounts_sql))
-            tx_rows = list(snapshot.execute_sql(transactions_sql))
+    def get_graph_universe(
+        request: Request, db: Any = Depends(get_spanner_db)
+    ) -> ApiEnvelope:
+        def _primary() -> dict[str, Any]:
+            accounts_sql = """
+            SELECT account_id, bank_id, currency, is_flagged
+            FROM Accounts
+            LIMIT 360
+            """
+            transactions_sql = """
+            SELECT transaction_id, from_account_id, to_account_id, amount_paid, payment_currency, is_laundering
+            FROM Transactions
+            LIMIT 520
+            """
+            with db.snapshot(multi_use=True) as snapshot:
+                acc_rows = list(snapshot.execute_sql(accounts_sql))
+                tx_rows = list(snapshot.execute_sql(transactions_sql))
 
-        accounts = [
-            {
-                "account_id": str(r[0]),
-                "bank_id": str(r[1]),
-                "currency": str(r[2]),
-                "is_flagged": bool(r[3]),
-            }
-            for r in acc_rows
-        ]
-        transactions = [
-            {
-                "transaction_id": str(r[0]),
-                "from_account_id": str(r[1]),
-                "to_account_id": str(r[2]),
-                "amount_paid": float(r[3]),
-                "currency": str(r[4]),
-                "is_laundering": bool(r[5]),
-            }
-            for r in tx_rows
-        ]
-        return ApiEnvelope(
-            success=True,
-            data={
+            accounts = [
+                {
+                    "account_id": str(r[0]),
+                    "bank_id": str(r[1]),
+                    "currency": str(r[2]),
+                    "is_flagged": bool(r[3]),
+                }
+                for r in acc_rows
+            ]
+            transactions = [
+                {
+                    "transaction_id": str(r[0]),
+                    "from_account_id": str(r[1]),
+                    "to_account_id": str(r[2]),
+                    "amount_paid": float(r[3]),
+                    "currency": str(r[4]),
+                    "is_laundering": bool(r[5]),
+                }
+                for r in tx_rows
+            ]
+            return {
                 "accounts": accounts,
                 "transactions": transactions,
-            },
+            }
+
+        data = _run_with_fallback(
+            request, _primary, lambda fb: fb.get_universe_data()
+        )
+        return ApiEnvelope(
+            success=True,
+            data=data,
             meta={
-                "accounts_sampled": len(accounts),
-                "transactions_sampled": len(transactions),
+                "accounts_sampled": len(data["accounts"]),
+                "transactions_sampled": len(data["transactions"]),
             },
         )
 
     @app.post("/api/investigate", response_model=ApiEnvelope)
     def investigate_endpoint(
+        request: Request,
         payload: InvestigateRequest,
         service: WorkbenchService = Depends(get_workbench_service),
     ) -> ApiEnvelope:
         try:
-            inv = service.investigate_case(
-                typology=payload.typology,
-                account_id=payload.account_id,
-                min_amount=Decimal(str(payload.min_amount)),
-                case_id=payload.case_id,
+            inv = _run_with_fallback(
+                request,
+                lambda: service.investigate_case(
+                    typology=payload.typology,
+                    account_id=payload.account_id,
+                    min_amount=Decimal(str(payload.min_amount)),
+                    case_id=payload.case_id,
+                ),
+                lambda fb: fb.investigate_case(
+                    typology=payload.typology,
+                    account_id=payload.account_id,
+                    min_amount=Decimal(str(payload.min_amount)),
+                    case_id=payload.case_id,
+                ),
             )
             return ApiEnvelope(
                 success=True,
@@ -650,16 +709,28 @@ def create_app() -> FastAPI:
 
     @app.post("/api/intercept", response_model=ApiEnvelope)
     def intercept_endpoint(
+        request: Request,
         payload: InterceptRequest,
         service: WorkbenchService = Depends(get_workbench_service),
     ) -> ApiEnvelope:
-        res = service.intercept_payment(
-            from_account_id=payload.from_account_id,
-            to_account_id=payload.to_account_id,
-            amount_paid=Decimal(str(payload.amount_paid)),
-            payment_currency=payload.payment_currency,
-            payment_format=payload.payment_format,
-            persist=payload.persist,
+        res = _run_with_fallback(
+            request,
+            lambda: service.intercept_payment(
+                from_account_id=payload.from_account_id,
+                to_account_id=payload.to_account_id,
+                amount_paid=Decimal(str(payload.amount_paid)),
+                payment_currency=payload.payment_currency,
+                payment_format=payload.payment_format,
+                persist=payload.persist,
+            ),
+            lambda fb: fb.intercept_payment(
+                from_account_id=payload.from_account_id,
+                to_account_id=payload.to_account_id,
+                amount_paid=Decimal(str(payload.amount_paid)),
+                payment_currency=payload.payment_currency,
+                payment_format=payload.payment_format,
+                persist=payload.persist,
+            ),
         )
         return ApiEnvelope(
             success=True,
@@ -679,16 +750,27 @@ def create_app() -> FastAPI:
 
     @app.post("/api/alerts/generate-sar", response_model=ApiEnvelope)
     def generate_sar_endpoint(
+        request: Request,
         payload: GenerateSarRequest,
         service: WorkbenchService = Depends(get_workbench_service),
     ) -> ApiEnvelope:
         try:
-            alert = service.generate_single_ticket_sar(
-                typology=payload.typology,
-                account_id=payload.account_id,
-                min_amount=Decimal(str(payload.min_amount)),
-                case_id=payload.case_id,
-                persist_alert=payload.persist_alert,
+            alert = _run_with_fallback(
+                request,
+                lambda: service.generate_single_ticket_sar(
+                    typology=payload.typology,
+                    account_id=payload.account_id,
+                    min_amount=Decimal(str(payload.min_amount)),
+                    case_id=payload.case_id,
+                    persist_alert=payload.persist_alert,
+                ),
+                lambda fb: fb.generate_single_ticket_sar(
+                    typology=payload.typology,
+                    account_id=payload.account_id,
+                    min_amount=Decimal(str(payload.min_amount)),
+                    case_id=payload.case_id,
+                    persist_alert=payload.persist_alert,
+                ),
             )
             return ApiEnvelope(
                 success=True,
@@ -706,10 +788,16 @@ def create_app() -> FastAPI:
 
     @app.get("/api/alerts", response_model=ApiEnvelope)
     def list_alerts_endpoint(
+        request: Request,
         limit: int = 50,
         service: WorkbenchService = Depends(get_workbench_service),
     ) -> ApiEnvelope:
-        alerts = service.list_alerts(limit=min(max(1, limit), 200))
+        clamped = min(max(1, limit), 200)
+        alerts = _run_with_fallback(
+            request,
+            lambda: service.list_alerts(limit=clamped),
+            lambda fb: fb.list_alerts(limit=clamped),
+        )
         return ApiEnvelope(
             success=True,
             data={"alerts": [_serialize_alert(a) for a in alerts]},

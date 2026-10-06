@@ -353,3 +353,95 @@ def test_universe_endpoint_returns_background_cloud():
         app.dependency_overrides.clear()
 
 
+
+
+def test_api_endpoints_fallback_gracefully_when_spanner_auth_expires():
+    from spanner_aml.api.app import DEFAULT_CASE_CATALOG
+
+    app = create_app()
+    broken_db = MagicMock()
+    broken_db.snapshot.side_effect = RuntimeError(
+        "503 Getting metadata from plugin failed with error: Reauthentication is needed."
+    )
+    app.dependency_overrides[get_spanner_db] = lambda: broken_db
+
+    try:
+        client = TestClient(app)
+
+        # 1. GET /api/health
+        res_health = client.get("/api/health")
+        assert res_health.status_code == 200
+        assert res_health.json()["success"] is True
+        assert res_health.json()["data"]["accounts_count"] > 0
+
+        # 2. GET /api/universe
+        res_univ = client.get("/api/universe")
+        assert res_univ.status_code == 200
+        assert len(res_univ.json()["data"]["accounts"]) > 0
+        assert len(res_univ.json()["data"]["transactions"]) > 0
+
+        # 3. POST /api/investigate across all catalog cases
+        for c in DEFAULT_CASE_CATALOG:
+            res_inv = client.post(
+                "/api/investigate",
+                json={
+                    "case_id": c["case_id"],
+                    "typology": c["typology"],
+                    "account_id": c["account_id"],
+                },
+            )
+            assert res_inv.status_code == 200, f"Failed for {c['case_id']}: {res_inv.text}"
+            inv_data = res_inv.json()["data"]
+            assert len(inv_data["evidence"]["hops"]) >= 1
+
+        # 4. POST /api/intercept on final cash-out wire vs benign wire
+        first_case = DEFAULT_CASE_CATALOG[0]
+        inv_hops = client.post(
+            "/api/investigate",
+            json={
+                "case_id": first_case["case_id"],
+                "typology": first_case["typology"],
+                "account_id": first_case["account_id"],
+            },
+        ).json()["data"]["evidence"]["hops"]
+        final_hop = inv_hops[-1]
+        res_int = client.post(
+            "/api/intercept",
+            json={
+                "from_account_id": final_hop["from_account_id"],
+                "to_account_id": final_hop["to_account_id"],
+                "amount_paid": final_hop["amount_paid"],
+            },
+        )
+        assert res_int.status_code == 200
+        assert res_int.json()["data"]["decision"] == "HELD"
+
+        res_clear = client.post(
+            "/api/intercept",
+            json={
+                "from_account_id": "ACC_BENIGN_999",
+                "to_account_id": "ACC_BENIGN_888",
+                "amount_paid": 250.0,
+            },
+        )
+        assert res_clear.status_code == 200
+        assert res_clear.json()["data"]["decision"] == "SETTLED"
+
+        # 5. POST /api/alerts/generate-sar & GET /api/alerts
+        res_sar = client.post(
+            "/api/alerts/generate-sar",
+            json={
+                "case_id": first_case["case_id"],
+                "typology": first_case["typology"],
+                "account_id": first_case["account_id"],
+                "persist_alert": True,
+            },
+        )
+        assert res_sar.status_code == 200
+        assert "alert_id" in res_sar.json()["data"]
+
+        res_alerts = client.get("/api/alerts")
+        assert res_alerts.status_code == 200
+        assert len(res_alerts.json()["data"]["alerts"]) >= 1
+    finally:
+        app.dependency_overrides.clear()
